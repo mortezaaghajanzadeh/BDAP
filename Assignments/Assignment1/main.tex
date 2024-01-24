@@ -1,0 +1,97 @@
+\documentclass[hidelinks,12pt]{article}
+\usepackage[a4paper,width=150mm,top=25mm,bottom=25mm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{apacite}
+\usepackage{natbib}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{ragged2e}
+\usepackage[font={footnotesize,bf}]{caption}
+\usepackage[nottoc,numbib]{tocbibind}
+\usepackage{multirow}
+
+\linespread{1.5}
+
+\begin{document}
+
+\begin{titlepage}
+    \begin{center}
+        \vspace*{1cm}
+        
+        
+        % \vfill
+        
+        \large
+        \textbf{Big Data Asset Pricing \\ Exercise 1: Beta-Dollar Neutral Portfolio Construction}
+            
+        
+        \normalsize
+        Seyyed Morteza Aghajanzadeh \\
+        Department of Finance \\
+        Stockholm School of Economics
+        
+        \vfill
+        \normalsize
+        \justifying
+        \noindent
+        \textbf{Statement:} I certify with my signature that I have solved the exercise according to the Code of Professional Conduct and Ethics. 
+        For example, I have not plagiarized others, but, instead, solved the exercise myself (possibly with allowed collaboration with other students), and I have referenced my sources appropriately.
+
+        \vfill
+        
+        \vspace{0.8cm}
+            
+        
+        \vspace{0.8cm}
+        \normalsize
+        \centering
+        2024-01
+            
+    \end{center}
+\end{titlepage}
+\section{}
+The optimization problem is as follows:
+\begin{equation*}
+    \begin{aligned}
+        & \underset{x }{\min}
+        & & (x-y)^{'} (x-y) \\
+        & s.t. 
+        & & x^{'} \overrightarrow{1} = 0  \\
+        & & & x^{'} \beta = 0
+    \end{aligned}
+\end{equation*}
+where $x$ is the vector of weights of the portfolio, $y$ is the vector of weights of the benchmark. This problem would modify the benchmark portfolio in a way that the new portfolio is dollar and beta neutral.  The first constraint is the dollar neutrality constraint and the second constraint is the beta neutrality constraint.
+
+\section{}
+\begin{equation*}
+    \begin{aligned}
+        & \underset{x }{\min}
+        & & (x-y)^{'} (x-y) \\
+        & s.t. 
+        & & x^{'} B = 0 
+    \end{aligned}
+\end{equation*}
+\begin{equation*}
+    \begin{aligned}
+    &\Rightarrow \mathcal{L} = x^{'} x - x^{'} y - y^{'} x + y^{'} y +  x^{'} B \lambda^{'}\\
+    F.O.C& \Rightarrow 2x - y - y - B \lambda^{'} = 0 \Rightarrow x = y + \frac{1}{2} B \lambda^{'} 
+\end{aligned}
+\end{equation*}
+Now we can plug the solution for $x$ in the constraint and solve for $\lambda$:
+\begin{equation*}
+    \begin{aligned}
+        & x^{'} B = 0 \\
+        & \Rightarrow (y + \frac{1}{2} B \lambda^{'})^{'} B = 0 \\
+        & \Rightarrow y^{'} B + \frac{1}{2} \lambda B^{'} B = 0 \\
+        & \Rightarrow \lambda = -2 y^{'} B (B^{'} B)^{-1} \\
+        & \Rightarrow x = y - B (B B^{'})^{-1} B^{'} y
+    \end{aligned}
+\end{equation*}
+
+
+
+
+\end{document}
