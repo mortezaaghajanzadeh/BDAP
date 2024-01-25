@@ -1,0 +1,168 @@
+\documentclass[hidelinks,12pt]{article}
+\usepackage[a4paper,width=150mm,top=25mm,bottom=25mm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{apacite}
+\usepackage{natbib}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{ragged2e}
+\usepackage[font={footnotesize,bf}]{caption}
+\usepackage[nottoc,numbib]{tocbibind}
+\usepackage{multirow}
+
+\linespread{1.5}
+
+\begin{document}
+
+\begin{titlepage}
+    \begin{center}
+        \vspace*{1cm}
+        
+        
+        % \vfill
+        
+        \large
+        \textbf{Big Data Asset Pricing \\ Exercise 1: Beta-Dollar Neutral Portfolio Construction}
+            
+        
+        \normalsize
+        Seyyed Morteza Aghajanzadeh \\
+        Department of Finance \\
+        Stockholm School of Economics
+        
+        \vfill
+        \normalsize
+        \justifying
+        \noindent
+        \textbf{Statement:} I certify with my signature that I have solved the exercise according to the Code of Professional Conduct and Ethics. 
+        For example, I have not plagiarized others, but, instead, solved the exercise myself (possibly with allowed collaboration with other students), and I have referenced my sources appropriately.
+
+        \vfill
+        
+        \vspace{0.8cm}
+            
+        
+        \vspace{0.8cm}
+        \normalsize
+        \centering
+        2024-01
+            
+    \end{center}
+\end{titlepage}
+\section{}
+The optimization problem is as follows:
+\begin{equation*}
+    \begin{aligned}
+        & \underset{x }{\min}
+        & & (x-y)^{'} (x-y) \\
+        & s.t. 
+        & & x^{'} \overrightarrow{1} = 0  \\
+        & & & x^{'} \beta = 0
+    \end{aligned}
+\end{equation*}
+where $x$ is the vector of weights of the portfolio, $y$ is the vector of weights of the benchmark. This problem would modify the benchmark portfolio in a way that the new portfolio is dollar and beta neutral.  The first constraint is the dollar neutrality constraint and the second constraint is the beta neutrality constraint.
+
+\section{}
+\begin{equation*}
+    \begin{aligned}
+        & \underset{x }{\min}
+        & & (x-y)^{'} (x-y) \\
+        & s.t. 
+        & & x^{'} B = 0 
+    \end{aligned}
+\end{equation*}
+\begin{equation*}
+    \begin{aligned}
+    &\Rightarrow \mathcal{L} = x^{'} x - x^{'} y - y^{'} x + y^{'} y - x^{'} B \lambda^{'}\\
+    F.O.C& \Rightarrow 2x - y - y - B \lambda^{'} = 0 \Rightarrow x = y + \frac{1}{2} B \lambda^{'} 
+\end{aligned}
+\end{equation*}
+Now we can plug the solution for $x$ in the constraint and solve for $\lambda$:
+\begin{equation*}
+    \begin{aligned}
+        & x^{'} B = 0 \\
+        & \Rightarrow (y + \frac{1}{2} B \lambda^{'})^{'} B = 0 \\
+        & \Rightarrow y^{'} B + \frac{1}{2} \lambda B^{'} B = 0 \\
+        & \Rightarrow \lambda = -2 y^{'} B (B^{'} B)^{-1} \\
+        & \Rightarrow x = y - B (B^{'} B)^{-1} B^{'} y
+    \end{aligned}
+\end{equation*}
+\section{}
+\subsection{}
+This strategy $y = a \overrightarrow{1}  - \beta $ is a betting against beta strategy. The first part of the strategy is a long position in the market and the second part rebalanced the weights with respect to the stocks' betas.
+\subsection{}
+If $a = 1$ then the strategy would be dollar neutral:
+\begin{equation*}
+    \begin{aligned}
+        & y^{'} \overrightarrow{1} = 0 \\
+        & \Leftrightarrow (a \overrightarrow{1}  - \beta )^{'} \overrightarrow{1} = 0 \\
+        & \Leftrightarrow a \overrightarrow{1}^{'} \overrightarrow{1} - \beta^{'} \overrightarrow{1} = 0 \\
+        & \Leftrightarrow a N - N \bar{\beta} = 0 \\
+        & \Leftrightarrow a = \bar{\beta} = 1
+    \end{aligned}
+\end{equation*}
+If $a = \beta^{'} \beta /N$ then the strategy would be beta neutral:
+\begin{equation*}
+    \begin{aligned}
+        & y^{'} \beta = 0 \\
+        & \Leftrightarrow (a \overrightarrow{1}  - \beta )^{'} \beta = 0 \\
+        & \Leftrightarrow a \overrightarrow{1}^{'} \beta - \beta^{'} \beta = 0 \\
+        & \Leftrightarrow a N - \beta^{'} \beta = 0 \\
+        & \Leftrightarrow a = \beta^{'} \beta /N
+    \end{aligned}
+\end{equation*}
+\subsection{}
+For any $a$ the beta-dollar neutral portfolio would be:
+\begin{equation*}
+    \begin{aligned}
+        & x = y - B (B^{'} B)^{-1} B^{'} y \\
+        & \Rightarrow x = B
+            \begin{pmatrix}
+                a \\
+                -1
+            \end{pmatrix}
+        - B (B^{'} B)^{-1} B^{'} B\begin{pmatrix}
+            a \\
+            -1
+        \end{pmatrix} \\
+        & \Rightarrow x = B
+            \begin{pmatrix}
+                a \\
+                -1
+            \end{pmatrix} - B\begin{pmatrix}
+            a \\
+            -1
+        \end{pmatrix} \\
+        & \Rightarrow x = 0
+    \end{aligned}
+\end{equation*}
+So, the beta-dollar neutral portfolio does not exist for a strategy $y$ that is a betting against beta strategy.
+\section{}
+\subsection{}
+The OLS estimation for the cross-sectional regression is as follows:
+\begin{equation*}
+\hat{\theta} = (X^{'} X)^{-1} X^{'} y
+\end{equation*}
+where $X$ is the matrix of the independent variables and $y$ is the vector of the dependent variable. The matrix $X$ is $B$, so the estimation is as follows:
+\begin{equation*}
+    \hat{\theta} = (B^{'} B)^{-1} B^{'} y
+\end{equation*}
+and the residuals are:
+\begin{equation*}
+    \hat{\epsilon} = y - B \hat{\theta} = y - B (B^{'} B)^{-1} B^{'} y
+\end{equation*}
+which is the same as the beta-dollar neutral portfolio weights that we found in the previous section.
+\subsection{}
+The intuition behind the regression results is that the OLS estimation is a linear projection of the dependent variable on the independent variables. So, the residuals are the part of the dependent variable that is not explained by the independent variables. In this case, the independent variables are the betas of the stocks and the dependent variable is the return of the stocks. So, the residuals are the part of the return that is not explained by the betas. The beta-dollar neutral portfolio is the portfolio that is dollar and beta neutral. So, the residuals are the weights of the beta-dollar neutral portfolio. 
+\section{}
+Based on the results in the previous section, we can say that the beta-dollar neutral portfolio exists for any strategy $y$ that is not a linear combination of the betas of the stocks. In this case the residuals are not zero and the beta-dollar neutral portfolio does not exist.
+
+In other words, the matrix $B^{'} B$ is not full rank, so the inverse of the matrix does not exist, and we cannot solve the optimization problem.
+
+
+
+
+\end{document}
