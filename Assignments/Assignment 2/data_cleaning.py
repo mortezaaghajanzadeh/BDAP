@@ -7,41 +7,20 @@ user_name = 'aghajanzadeh93'
 password = '4061@Morteza'
 wrds_db = wrds.Connection(wrds_username=user_name, wrds_password=password)
 #%%  List all libraries
-# wrds_db.list_libraries()
+wrds_db.list_libraries()
+#%%
 # %% Get CRSP Data
-monthly_price_data = wrds_db.raw_sql(
-    """
-    select permno, date, prc, ret, shrout 
-    from crsp.msf
-    """, 
-                     date_cols=['date'])
-columns = ['cusip',
- 'permno',
- 'permco',
- 'issuno',
- 'hexcd',
- 'hsiccd',
- 'date',
- 'bidlo',
- 'askhi',
- 'prc',
- 'vol',
- 'ret',
- 'bid',
- 'ask',
- 'shrout',
- 'cfacpr',
- 'cfacshr',
- 'altprc',
- 'spread',
- 'altprcdt',
- 'retx']
-
+wrds_db.list_tables(library='crsp')
+# wrds_db.describe_table(library='crsp', table='msf')
+wrds_db.get_table(library='crsp', table='msf', obs=5)
+monthly_price_data = wrds_db.get_table(library='crsp', table='msf', columns=['permno', 'date', 'prc', 'ret', 'shrout', 'hexcd'])
 # %%
-# Closing Price or Bid/Ask Average
-# Variable Name = PRC
+monthly_price_data = monthly_price_data.loc[monthly_price_data['hexcd'] <= 3] # Keep only NYSE, AMEX, and NASDAQ
+monthly_price_data['date'] = pd.to_datetime(monthly_price_data['date'])
+monthly_price_data['prc'] = monthly_price_data['prc'].astype(float)
+monthly_price_data['shrout'] = monthly_price_data['shrout'].astype(float)
+monthly_price_data['ret'] = monthly_price_data['ret'].astype(float)
 monthly_price_data.describe()
-# %%
 
 #%% Clean Monthly Price Data
 monthly_price_data['year'] = monthly_price_data['date'].dt.year
@@ -109,3 +88,4 @@ merged_data.describe()
 # %%
 merged_data.to_csv('Out/monthly_return_book_value.csv', index=False)
 #%%
+merged_data.hexcd.value_counts()
