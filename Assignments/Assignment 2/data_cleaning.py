@@ -94,7 +94,7 @@ data.drop(['First_Moody_Year', 'Last_Moody_Year'], axis=1, inplace=True)
 data.rename(columns={
     'CRSP_Permno': 'permno',
     'value': 'BE'}, inplace=True)
-data['BE'] = data['BE'].astype(float)
+data['BE'] = data['BE'].astype(float)/1e3
 moody_data = data.copy()
 
 # %%
