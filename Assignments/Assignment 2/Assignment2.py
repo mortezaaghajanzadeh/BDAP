@@ -12,18 +12,45 @@ df['date'] = pd.to_datetime(df['date'])
 df['month'] = df.date.dt.month
 df['yearMonth'] = df.date.dt.to_period('M')
 df.drop_duplicates(subset=['date', 'permno'], inplace=True)
+df.drop(df.loc[df.prc_flag == 1].index, inplace=True)
+#
 #%% Find the Annual portfolio at the end of June
-portfolio_selection = df.loc[df.month == 6].dropna(subset=['B/M','mcap']).copy()
-portfolio_selection = portfolio_selection.loc[portfolio_selection['B/M'] > 0]
-High_threshold = portfolio_selection.groupby('year')['B/M'].quantile(0.7).to_dict()
-Low_threshold = portfolio_selection.groupby('year')['B/M'].quantile(0.3).to_dict()
-High_Big_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(lambda x: x.loc[(x['B/M'] > x['B/M'].quantile(0.7))&(x.mcap >= x[x.hexcd == 1].mcap.quantile(0.5))].permno.tolist()).to_dict()
-Low_Big_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(lambda x: x.loc[(x['B/M'] <= x['B/M'].quantile(0.3))&(x.mcap >= x[x.hexcd == 1].mcap.quantile(0.5))].permno.tolist()).to_dict()
-High_Small_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(lambda x: x.loc[(x['B/M'] > x['B/M'].quantile(0.7))&(x.mcap < x[x.hexcd == 1].mcap.quantile(0.5))].permno.tolist()).to_dict()
-Low_Small_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(lambda x: x.loc[(x['B/M'] <= x['B/M'].quantile(0.3))&(x.mcap < x[x.hexcd == 1].mcap.quantile(0.5))].permno.tolist()).to_dict()
+portfolio_selection = df.loc[df.month.isin([7,12])].copy()
+print(portfolio_selection.shape)
+portfolio_selection['mcap_flag'] = portfolio_selection.groupby(['permno', 'year'])['mcap'].transform(lambda x: 1 if x.isna().sum() > 0 else 0)
+portfolio_selection = portfolio_selection.loc[portfolio_selection.mcap_flag == 0].copy()
+print(portfolio_selection.shape)
+
+mapping_dict = dict(zip(portfolio_selection.loc[portfolio_selection.month == 12].set_index(['permno', 'year']).index, portfolio_selection.loc[portfolio_selection.month == 12].mcap))
+
+portfolio_selection.drop(portfolio_selection[portfolio_selection.month == 12].index, inplace=True)
+portfolio_selection['mcap'] = portfolio_selection.set_index(['permno', 'year']).index.map(mapping_dict)
+portfolio_selection.dropna(subset=['mcap'], inplace=True)
+#%%
+portfolio_selection = portfolio_selection.loc[portfolio_selection.month == 7].dropna(subset=['B/M','mcap']).copy()
+portfolio_selection.drop_duplicates(subset=['permno', 'year'], inplace=True)
+plot_portfolio_selection = portfolio_selection.copy()
+# portfolio_selection = portfolio_selection.loc[portfolio_selection['B/M'] > 0]
+High_threshold = portfolio_selection[(portfolio_selection.hexcd == 1)].groupby('year')['B/M'].quantile(0.7).to_dict()
+Low_threshold = portfolio_selection[(portfolio_selection.hexcd == 1)].groupby('year')['B/M'].quantile(0.3).to_dict()
+
+
+#%% Value and Growth Portfolios
+High_Big_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(
+    lambda x: x.loc[
+        (
+            x['B/M'] > x[x.hexcd == 1]['B/M'].quantile(0.7)
+        )&(
+            x.mcap >= x[x.hexcd == 1].mcap.quantile(0.5)
+            )
+            ].permno.tolist()
+    ).to_dict()
+Low_Big_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(lambda x: x.loc[(x['B/M'] <= x[x.hexcd == 1]['B/M'].quantile(0.3))&(x.mcap >= x[x.hexcd == 1].mcap.quantile(0.5))].permno.tolist()).to_dict()
+High_Small_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(lambda x: x.loc[(x['B/M'] > x[x.hexcd == 1]['B/M'].quantile(0.7))&(x.mcap < x[x.hexcd == 1].mcap.quantile(0.5))].permno.tolist()).to_dict()
+Low_Small_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(lambda x: x.loc[(x['B/M'] <= x[x.hexcd == 1]['B/M'].quantile(0.3))&(x.mcap < x[x.hexcd == 1].mcap.quantile(0.5))].permno.tolist()).to_dict()
 
 #%% Load the FF breakpoints
-tempt = df.loc[df.month == 6].copy().drop_duplicates(subset=['date', 'permno']).reset_index(drop=True)
+tempt = plot_portfolio_selection.reset_index(drop=True).copy()
 tempt['year'] = tempt.date.dt.year
 positive_number = tempt.groupby('year')['B/M'].apply(lambda x: len(x[x >0])).to_dict()
 total_number = tempt.groupby('year').size().to_dict()
@@ -57,11 +84,10 @@ sns.set(style="whitegrid")
 ax = sns.lineplot(x="year", y="B/M", hue="Threshold", style="calculation", data=df_breakpoint)
 ax.set_title('B/M Breakpoint')
 #%% Q2
-#%% Q3
-monthly_return_df = df.dropna(subset=['mcap','ret']).copy()
-monthly_return_df[['permno','year','ret','yearMonth','month','mcap']]
-#%%
+monthly_return_df = df.dropna(subset=['mcap','ret'])[['permno','year','ret','yearMonth','month','mcap']]
+monthly_return_df.groupby('yearMonth').ret.std().plot()
 
+#%% Q3
 def get_portfolio_return(df):
     df['mweight'] = df.groupby('yearMonth')['mcap'].transform(lambda x: x/sum(x))
     df['w_ret'] = df['mweight']*df['ret']
@@ -109,16 +135,15 @@ for i in tqdm(High_Big_portfolio):
 return_df = pd.DataFrame({'Value_Big': value_big_returns, 'Growth_Big': growth_big_returns, 'Value_Small': value_small_returns, 'Growth_Small': growth_small_returns}).reset_index()
 return_df['yearMonth'] = return_df['yearMonth'].dt.to_timestamp()
 return_df['HML'] = 0.5 * (return_df['Value_Big'] + return_df['Value_Small'] - return_df['Growth_Big'] - return_df['Growth_Small'])
-return_df['cum_HML'] = ((1+return_df['HML']/100).cumprod()-1)*100
+return_df['cum_HML'] = ((1+return_df['HML']).cumprod()-1)
 
 #%% Load FF 
 ff_df = pd.read_csv('Data/F-F_Research_Data_Factors.csv')
 ff_df.iloc[:,1:] = ff_df.iloc[:,1:]/100
 ff_df['yearMonth'] = pd.to_datetime(ff_df['yearMonth'], format='%Y%m')
-ff_df['cum_HML'] = ((1+ff_df['HML']/100).cumprod()-1)*100
+ff_df['cum_HML'] = ((1+ff_df['HML']).cumprod()-1)
 sns.lineplot(data=return_df, x='yearMonth', y='cum_HML', label='Our')
 sns.lineplot(data=ff_df, x='yearMonth', y='cum_HML', label='FF')
 #%%
-return_df[['yearMonth','HML']].merge(ff_df[['yearMonth','HML']], on='yearMonth', suffixes=('_our', '_ff'))[['HML_our','HML_ff']].corr()
-
+return_df[['yearMonth','HML','cum_HML']].merge(ff_df[['yearMonth','HML','cum_HML']], on='yearMonth', suffixes=('_our', '_ff'))[['HML_our','HML_ff','cum_HML_our','cum_HML_ff']].corr()
 # %%

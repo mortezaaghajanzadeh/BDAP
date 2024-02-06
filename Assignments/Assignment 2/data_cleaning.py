@@ -11,11 +11,16 @@ wrds_db.list_libraries()
 #%%
 # %% Get CRSP Data
 wrds_db.list_tables(library='crsp')
-# wrds_db.describe_table(library='crsp', table='msf')
+wrds_db.describe_table(library='crsp', table='msf')
 wrds_db.get_table(library='crsp', table='msf', obs=5)
 monthly_price_data = wrds_db.get_table(library='crsp', table='msf', columns=['permno', 'date', 'prc', 'ret', 'shrout', 'hexcd'])
+linking_file = wrds_db.get_table(library='crsp', table='msenames',columns=['permno', 'exchcd', 'shrcd'])
+monthly_price_data = monthly_price_data.merge(linking_file, on='permno', how='left')
 # %%
 monthly_price_data = monthly_price_data.loc[monthly_price_data['hexcd'] <= 3] # Keep only NYSE, AMEX, and NASDAQ
+print(monthly_price_data.shape)
+monthly_price_data = monthly_price_data.loc[monthly_price_data['shrcd'].isin([10,11])] # Keep only ordinary common shares
+print(monthly_price_data.shape)
 monthly_price_data['date'] = pd.to_datetime(monthly_price_data['date'])
 monthly_price_data['prc'] = monthly_price_data['prc'].astype(float)
 monthly_price_data['shrout'] = monthly_price_data['shrout'].astype(float)
@@ -25,7 +30,7 @@ monthly_price_data.describe()
 #%% Clean Monthly Price Data
 monthly_price_data['year'] = monthly_price_data['date'].dt.year
 monthly_price_data['month'] = monthly_price_data['date'].dt.month
-monthly_price_data.loc[monthly_price_data.month < 6, 'year'] = monthly_price_data.loc[monthly_price_data.month < 6]['year'] - 1
+monthly_price_data.loc[monthly_price_data.month <= 6, 'year'] = monthly_price_data.loc[monthly_price_data.month <= 6]['year'] - 1
 monthly_price_data['year'] = monthly_price_data['year'].astype(int)
 monthly_price_data.drop(columns=['month'], inplace=True)
 monthly_price_data.sort_values(by=['permno', 'year'], inplace=True)
@@ -34,8 +39,6 @@ monthly_price_data['prc'] = monthly_price_data['prc'].abs()
 monthly_price_data['mcap'] = monthly_price_data['prc'] * monthly_price_data['shrout'] / 1e6
 monthly_price_data.reset_index(drop=True, inplace=True)
 monthly_price_data.head()
-#%%
-monthly_price_data.describe()
 #%%
 book_wrds = wrds_db.raw_sql(
     """select GVKEY, BKVLPS, FYEAR
@@ -89,3 +92,4 @@ merged_data.describe()
 merged_data.to_csv('Out/monthly_return_book_value.csv', index=False)
 #%%
 merged_data.hexcd.value_counts()
+# %%
