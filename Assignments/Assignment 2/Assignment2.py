@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 # %%
 # Load the cleaned and merged data
 df = pd.read_csv('out/monthly_return_book_value.csv').drop(columns=['gvkey'])
@@ -25,12 +26,14 @@ mapping_dict = dict(zip(portfolio_selection.loc[portfolio_selection.month == 12]
 
 portfolio_selection.drop(portfolio_selection[portfolio_selection.month == 12].index, inplace=True)
 portfolio_selection['mcap'] = portfolio_selection.set_index(['permno', 'year']).index.map(mapping_dict)
+print(portfolio_selection.shape)
 portfolio_selection.dropna(subset=['mcap'], inplace=True)
+print(portfolio_selection.shape)
 #%%
 portfolio_selection = portfolio_selection.loc[portfolio_selection.month == 7].dropna(subset=['B/M','mcap']).copy()
 portfolio_selection.drop_duplicates(subset=['permno', 'year'], inplace=True)
 plot_portfolio_selection = portfolio_selection.copy()
-# portfolio_selection = portfolio_selection.loc[portfolio_selection['B/M'] > 0]
+portfolio_selection = portfolio_selection.loc[portfolio_selection['B/M'] > 0]
 High_threshold = portfolio_selection[(portfolio_selection.hexcd == 1)].groupby('year')['B/M'].quantile(0.7).to_dict()
 Low_threshold = portfolio_selection[(portfolio_selection.hexcd == 1)].groupby('year')['B/M'].quantile(0.3).to_dict()
 
@@ -39,15 +42,22 @@ Low_threshold = portfolio_selection[(portfolio_selection.hexcd == 1)].groupby('y
 High_Big_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(
     lambda x: x.loc[
         (
-            x['B/M'] > x[x.hexcd == 1]['B/M'].quantile(0.7)
+            x['B/M'] > x['B/M'].quantile(0.7)
         )&(
             x.mcap >= x[x.hexcd == 1].mcap.quantile(0.5)
             )
             ].permno.tolist()
     ).to_dict()
-Low_Big_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(lambda x: x.loc[(x['B/M'] <= x[x.hexcd == 1]['B/M'].quantile(0.3))&(x.mcap >= x[x.hexcd == 1].mcap.quantile(0.5))].permno.tolist()).to_dict()
-High_Small_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(lambda x: x.loc[(x['B/M'] > x[x.hexcd == 1]['B/M'].quantile(0.7))&(x.mcap < x[x.hexcd == 1].mcap.quantile(0.5))].permno.tolist()).to_dict()
-Low_Small_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(lambda x: x.loc[(x['B/M'] <= x[x.hexcd == 1]['B/M'].quantile(0.3))&(x.mcap < x[x.hexcd == 1].mcap.quantile(0.5))].permno.tolist()).to_dict()
+High_Big_portfolio = {(i,j): 1 for i in High_Big_portfolio for j in High_Big_portfolio[i]}
+
+Low_Big_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(lambda x: x.loc[(x['B/M'] <= x['B/M'].quantile(0.3))&(x.mcap >= x[x.hexcd == 1].mcap.quantile(0.5))].permno.tolist()).to_dict()
+Low_Big_portfolio = {(i,j): 1 for i in Low_Big_portfolio for j in Low_Big_portfolio[i]}
+
+High_Small_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(lambda x: x.loc[(x['B/M'] > x['B/M'].quantile(0.7))&(x.mcap < x[x.hexcd == 1].mcap.quantile(0.5))].permno.tolist()).to_dict()
+High_Small_portfolio = {(i,j): 1 for i in High_Small_portfolio for j in High_Small_portfolio[i]}
+
+Low_Small_portfolio = portfolio_selection.groupby('year')[['permno','B/M','mcap','hexcd']].apply(lambda x: x.loc[(x['B/M'] <= x['B/M'].quantile(0.3))&(x.mcap < x[x.hexcd == 1].mcap.quantile(0.5))].permno.tolist()).to_dict()
+Low_Small_portfolio = {(i,j): 1 for i in Low_Small_portfolio for j in Low_Small_portfolio[i]}
 
 #%% Load the FF breakpoints
 tempt = plot_portfolio_selection.reset_index(drop=True).copy()
@@ -66,7 +76,7 @@ raw_df['year'] = raw_df['year'].astype(int)
 raw_df['data'] = 'FF'
 raw_df = raw_df.melt(id_vars=['year', 'data'], value_vars=['positive', 'negative'])
 merged_df = pd.concat([tempt_df, raw_df])
-sns.lineplot(data=merged_df, x='year', y='value', hue='variable', style='data')
+# sns.lineplot(data=merged_df, x='year', y='value', hue='variable', style='data')
 #%% 
 df_breakpoint_FF = raw_df_breakpoint_FF[['year','0.3','0.7']].copy()
 df_breakpoint_FF.columns = ['year','Growth','Value']
@@ -84,57 +94,42 @@ sns.set(style="whitegrid")
 ax = sns.lineplot(x="year", y="B/M", hue="Threshold", style="calculation", data=df_breakpoint)
 ax.set_title('B/M Breakpoint')
 #%% Q2
-monthly_return_df = df.dropna(subset=['mcap','ret'])[['permno','year','ret','yearMonth','month','mcap']]
+monthly_return_df = df.dropna(subset=['mcap','ret'])[['permno','hexcd','year','ret','yearMonth','month','mcap','B/M']]
 monthly_return_df.groupby('yearMonth').ret.std().plot()
-
-#%% Q3
-def get_portfolio_return(df):
-    df['mweight'] = df.groupby('yearMonth')['mcap'].transform(lambda x: x/sum(x))
+mapping_dict = monthly_return_df.loc[monthly_return_df.hexcd == 1].groupby('yearMonth').mcap.quantile(0.8).to_dict()
+monthly_return_df['high_cap'] = monthly_return_df.yearMonth.map(mapping_dict)
+monthly_return_df
+#% Q3
+monthly_return_df['BH'] = monthly_return_df.set_index(['year','permno']).index.map(High_Big_portfolio)
+monthly_return_df['SH'] = monthly_return_df.set_index(['year','permno']).index.map(High_Small_portfolio)
+monthly_return_df['BL'] = monthly_return_df.set_index(['year','permno']).index.map(Low_Big_portfolio)
+monthly_return_df['SL'] = monthly_return_df.set_index(['year','permno']).index.map(Low_Small_portfolio)
+monthly_return_df[['BH','SH','BL','SL']] = monthly_return_df[['BH','SH','BL','SL']].fillna(0)
+bh_df = monthly_return_df.loc[monthly_return_df.BH == 1].copy()
+sh_df = monthly_return_df.loc[monthly_return_df.SH == 1].copy()
+bl_df = monthly_return_df.loc[monthly_return_df.BL == 1].copy()
+sl_df = monthly_return_df.loc[monthly_return_df.SL == 1].copy()
+#%%
+def get_portfolio_return(df,weight):
+    if weight == 'equal':
+        return df.groupby('yearMonth').ret.mean()
+    elif weight == 'capped_value':
+        df.loc[df.mcap > df.high_cap, 'mcap'] = df.loc[df.mcap > df.high_cap].high_cap
+        df['mweight'] = df.groupby('yearMonth')['mcap'].transform(lambda x: x/sum(x))
+    else:
+        df['mweight'] = df.groupby('yearMonth')[weight].transform(lambda x: x/sum(x))
     df['w_ret'] = df['mweight']*df['ret']
     return df.groupby('yearMonth').w_ret.sum()
 
 
-
-value_big_returns = pd.DataFrame()
-growth_big_returns = pd.DataFrame()
-value_small_returns = pd.DataFrame()
-growth_small_returns = pd.DataFrame()
-for i in tqdm(High_Big_portfolio):
-    annual_df = pd.DataFrame()
-    annual_df = pd.concat([annual_df, monthly_return_df.loc[monthly_return_df.year == i]])
-
-
-    value_big_portfolio = annual_df.loc[annual_df.permno.isin(High_Big_portfolio[i])].copy()
-    if len(value_big_returns) == 0:
-        value_big_returns = get_portfolio_return(value_big_portfolio)
-    else:
-        value_big_returns = pd.concat([value_big_returns, get_portfolio_return(value_big_portfolio)])
-    
-    growth_big_portfolio = annual_df.loc[annual_df.permno.isin(Low_Big_portfolio[i])].copy()
-    if len(growth_big_returns) == 0:
-        growth_big_returns = get_portfolio_return(growth_big_portfolio)
-    else:
-        growth_big_returns = pd.concat([growth_big_returns, get_portfolio_return(growth_big_portfolio)])
-    
-    value_small_portfolio = annual_df.loc[annual_df.permno.isin(High_Small_portfolio[i])].copy()
-    if len(value_small_returns) == 0:
-        value_small_returns = get_portfolio_return(value_small_portfolio)
-    else:
-        value_small_returns = pd.concat([value_small_returns, get_portfolio_return(value_small_portfolio)])
-    
-    growth_small_portfolio = annual_df.loc[annual_df.permno.isin(Low_Small_portfolio[i])].copy()
-    if len(growth_small_returns) == 0:
-        growth_small_returns = get_portfolio_return(growth_small_portfolio)
-    else:
-        growth_small_returns = pd.concat([growth_small_returns, get_portfolio_return(growth_small_portfolio)])
-
-    ## The number of stocks in the portfolio are the same !!!!
-    # print(len(value_portfolio), len(growth_portfolio))
-
-    # break
-return_df = pd.DataFrame({'Value_Big': value_big_returns, 'Growth_Big': growth_big_returns, 'Value_Small': value_small_returns, 'Growth_Small': growth_small_returns}).reset_index()
+return_df = pd.DataFrame()
+return_df['BH'] = get_portfolio_return(bh_df,weight = 'mcap')
+return_df['SH'] = get_portfolio_return(sh_df,weight = 'mcap')
+return_df['BL'] = get_portfolio_return(bl_df,weight = 'mcap')
+return_df['SL'] = get_portfolio_return(sl_df,weight = 'mcap')
+return_df.reset_index(inplace=True)
 return_df['yearMonth'] = return_df['yearMonth'].dt.to_timestamp()
-return_df['HML'] = 0.5 * (return_df['Value_Big'] + return_df['Value_Small'] - return_df['Growth_Big'] - return_df['Growth_Small'])
+return_df['HML'] = 0.5 * (return_df['BH'] + return_df['SH'] - return_df['BL'] - return_df['SL'])
 return_df['cum_HML'] = ((1+return_df['HML']).cumprod()-1)
 
 #%% Load FF 
@@ -146,4 +141,72 @@ sns.lineplot(data=return_df, x='yearMonth', y='cum_HML', label='Our')
 sns.lineplot(data=ff_df, x='yearMonth', y='cum_HML', label='FF')
 #%%
 return_df[['yearMonth','HML','cum_HML']].merge(ff_df[['yearMonth','HML','cum_HML']], on='yearMonth', suffixes=('_our', '_ff'))[['HML_our','HML_ff','cum_HML_our','cum_HML_ff']].corr()
-# %%
+# %% Q4
+
+return_df['BH_equal'] = get_portfolio_return(bh_df, weight='equal').reset_index(drop=True)
+return_df['SH_equal'] = get_portfolio_return(sh_df, weight='equal').reset_index(drop=True)
+return_df['BL_equal'] = get_portfolio_return(bl_df, weight='equal').reset_index(drop=True)
+return_df['SL_equal'] = get_portfolio_return(sl_df, weight='equal').reset_index(drop=True)
+return_df['HML_equal'] = 0.5 * (return_df['BH_equal'] + return_df['SH_equal'] - return_df['BL_equal'] - return_df['SL_equal'])
+return_df['cum_HML_equal'] = ((1+return_df['HML_equal']).cumprod()-1)
+
+
+#%%
+
+return_df['BH_capped_value'] = get_portfolio_return(bh_df, weight='capped_value').reset_index(drop=True)
+return_df['SH_capped_value'] = get_portfolio_return(sh_df, weight='capped_value').reset_index(drop=True)
+return_df['BL_capped_value'] = get_portfolio_return(bl_df, weight='capped_value').reset_index(drop=True)
+return_df['SL_capped_value'] = get_portfolio_return(sl_df, weight='capped_value').reset_index(drop=True)
+return_df['HML_capped_value'] = 0.5 * (return_df['BH_capped_value'] + return_df['SH_capped_value'] - return_df['BL_capped_value'] - return_df['SL_capped_value'])
+return_df['cum_HML_capped_value'] = ((1+return_df['HML_capped_value']).cumprod()-1)
+
+sns.lineplot(data=return_df, x='yearMonth', y='cum_HML', label='mcap')
+sns.lineplot(data=return_df, x='yearMonth', y='cum_HML_equal', label='equal')
+sns.lineplot(data=return_df, x='yearMonth', y='cum_HML_capped_value', label='capped_value')
+# %% Load JKP data
+jkp_ew = pd.read_csv('Data/JKP/[usa]_[be_me]_[monthly]_[ew].csv')[['date','ret']]
+jkp_ew['date'] = pd.to_datetime(jkp_ew['date'])
+jkp_vw = pd.read_csv('Data/JKP/[usa]_[be_me]_[monthly]_[vw].csv')[['date','ret']]
+jkp_vw['date'] = pd.to_datetime(jkp_vw['date'])
+jkp_vw_cap = pd.read_csv('Data/JKP/[usa]_[be_me]_[monthly]_[vw_cap].csv')[['date','ret']]
+jkp_vw_cap['date'] = pd.to_datetime(jkp_vw_cap['date'])
+
+jkp_return_df = jkp_ew.merge(jkp_vw, on='date', suffixes=('_ew', '_vw')).merge(jkp_vw_cap, on='date').rename(columns={'ret':'ret_vw_cap'})
+
+jkp_return_df['cum_ew'] = ((1+jkp_return_df['ret_ew']).cumprod()-1)
+jkp_return_df['cum_vw'] = ((1+jkp_return_df['ret_vw']).cumprod()-1)
+jkp_return_df['cum_vw_cap'] = ((1+jkp_return_df['ret_vw_cap']).cumprod()-1)
+#%%
+return_df['cum_HML_jkp'] = return_df['HML']
+return_df.loc[return_df.yearMonth < jkp_return_df.date.min(), 'cum_HML_jkp'] = np.nan
+return_df['cum_HML_jkp'] = ((1+return_df['cum_HML_jkp']).cumprod()-1)
+
+return_df['cum_HML_equal_jkp'] = return_df['HML_equal']
+return_df.loc[return_df.yearMonth < jkp_return_df.date.min(), 'cum_HML_equal_jkp'] = np.nan
+return_df['cum_HML_equal_jkp'] = ((1+return_df['cum_HML_equal_jkp']).cumprod()-1)
+
+return_df['cum_HML_capped_value_jkp'] = return_df['HML_capped_value']
+return_df.loc[return_df.yearMonth < jkp_return_df.date.min(), 'cum_HML_capped_value_jkp'] = np.nan
+return_df['cum_HML_capped_value_jkp'] = ((1+return_df['cum_HML_capped_value_jkp']).cumprod()-1)
+
+
+#%%
+fig, ax = plt.subplots(3, sharex=True, figsize=(10,10))
+sns.lineplot(data=return_df, x='yearMonth', y='cum_HML_jkp', label='Our', ax=ax[0])
+sns.lineplot(data=jkp_return_df, x='date', y='cum_vw', label='JKP', ax=ax[0])
+sns.lineplot(data=return_df, x='yearMonth', y='cum_HML_equal_jkp', label='Our', ax=ax[1])
+sns.lineplot(data=jkp_return_df, x='date', y='cum_ew', label='JKP', ax=ax[1])
+sns.lineplot(data=return_df, x='yearMonth', y='cum_HML_capped_value_jkp', label='Our', ax=ax[2])
+sns.lineplot(data=jkp_return_df, x='date', y='cum_vw_cap', label='JKP', ax=ax[2])
+
+# set axis labels
+ax[0].set_title('Value-Weighted')
+ax[1].set_title('Equal-Weighted')
+ax[2].set_title('Value-Weighted with Cap')
+ax[0].set_ylabel('HML Portfolio Return')
+ax[1].set_ylabel('HML Portfolio Return')
+ax[2].set_ylabel('HML Portfolio Return')
+ax[2].set_xlabel('Year')
+
+plt.show()
+#%%

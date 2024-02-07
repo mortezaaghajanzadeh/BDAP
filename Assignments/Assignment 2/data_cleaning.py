@@ -9,6 +9,7 @@ wrds_db = wrds.Connection(wrds_username=user_name, wrds_password=password)
 #%%  List all libraries
 wrds_db.list_libraries()
 #%%
+wrds_db.describe_table(library='crsp', table='msenames')
 # %% Get CRSP Data
 wrds_db.list_tables(library='crsp')
 wrds_db.describe_table(library='crsp', table='msf')
@@ -38,7 +39,7 @@ monthly_price_data['prc_flag'] = monthly_price_data['prc'].apply(lambda x: 1 if 
 monthly_price_data['prc'] = monthly_price_data['prc'].abs()
 monthly_price_data['mcap'] = monthly_price_data['prc'] * monthly_price_data['shrout'] / 1e6
 monthly_price_data.reset_index(drop=True, inplace=True)
-monthly_price_data.head()
+monthly_price_data.sample(5)
 #%%
 book_wrds = wrds_db.raw_sql(
     """select GVKEY, BKVLPS, FYEAR
@@ -88,7 +89,7 @@ merged_data['BookEquity'] = merged_data['bkvlps']
 merged_data['BookEquity'] = merged_data['BookEquity'].fillna(merged_data['BE'])
 merged_data.drop(columns=['bkvlps', 'BE'], inplace=True)
 merged_data.describe()
-# %%
+#%%
 merged_data.to_csv('Out/monthly_return_book_value.csv', index=False)
 #%%
 merged_data.hexcd.value_counts()
