@@ -4,8 +4,10 @@ import numpy as np
 from scipy.stats import ttest_1samp
 import statsmodels.api as sm
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 #%%
 data_path = 'data/{}'
+out_path = 'out/{}'
 #%%
 data = ['ew','vw', 'vw_cap']
 
@@ -22,7 +24,20 @@ df_1 = df.groupby(['name','weighting']).ret.mean().reset_index()
 df_1 = df_1.merge(test_1, on = ['name','weighting'],suffixes=('_mean','_pval'))
 df_1['replicate'] = 0
 df_1.loc[(df_1.ret_mean > 0)&(abs(df_1.ret_pval) < 0.05), 'replicate'] = 1
-df_1.groupby(['weighting']).replicate.mean()
+# bar plot
+res_1 = df_1.groupby(['weighting']).replicate.mean()
+res_1.plot(kind = 'bar', color = 'skyblue', edgecolor = 'black', linewidth = 1.2, figsize = (10,6), rot = 0, fontsize = 12)
+plt.xlabel('Weighting Scheme')
+plt.ylabel('Proportion of Replicating Factors')
+plt.title('Proportion of Replicating Factors by Weighting')
+plt.xticks(rotation = 0)
+plt.xticks(np.arange(3), ['Equal Weighted', 'Value Weighted', 'Value Weighted with Cap'])
+vals = plt.gca().get_yticks()
+plt.gca().set_yticklabels(['{:.0f}%'.format(x*100) for x in vals])
+plt.savefig(out_path.format('1.png'), bbox_inches = 'tight')
+plt.savefig(out_path.format('1.pdf'), bbox_inches = 'tight')
+plt.show()
+
 #%% (2)
 factor_details = pd.read_excel('data/Factor Details.xlsx')[['abr_jkp','significance']].dropna()
 significant_factor = list(factor_details.loc[factor_details.significance== 1].abr_jkp.unique())
@@ -35,7 +50,17 @@ df_2 = df.groupby(['name','weighting']).ret.mean().reset_index()
 df_2 = df_2.merge(test_2, on = ['name','weighting'],suffixes=('_mean','_pval'))
 df_2['replicate'] = 0
 df_2.loc[(df_2.ret_mean > 0)&(abs(df_2.ret_pval) < 0.05), 'replicate'] = 1
-df_2.groupby(['weighting']).replicate.mean()
+res_2 = df_2.groupby(['weighting']).replicate.mean()
+res_2.plot(kind = 'bar', color = 'skyblue', edgecolor = 'black', linewidth = 1.2, figsize = (10,6), rot = 0, fontsize = 12)
+plt.xlabel('Weighting Scheme')
+plt.ylabel('Proportion of Replicating Factors')
+plt.title('Proportion of Replicating Factors by Weighting (Originally Significant Factors Only)')
+plt.xticks(rotation = 0)
+plt.xticks(np.arange(3), ['Equal Weighted', 'Value Weighted', 'Value Weighted with Cap'])
+vals = plt.gca().get_yticks()
+plt.gca().set_yticklabels(['{:.0f}%'.format(x*100) for x in vals])
+plt.savefig(out_path.format('2.png'), bbox_inches = 'tight')
+plt.savefig(out_path.format('2.pdf'), bbox_inches = 'tight')
 #%% (3)
 market_return = pd.read_csv(data_path.format('market_returns.csv'))
 market_return = market_return[market_return.excntry == 'USA'].reset_index(drop=True)[['eom','mkt_vw_exc','mkt_ew_exc']].copy()
@@ -65,13 +90,34 @@ df_3[['alpha','pval']] = pd.DataFrame(df_3[0].tolist(), index= df_3.index)
 df_3 = df_3.drop(columns = [0])
 df_3['replicate'] = 0
 df_3.loc[(df_3.alpha > 0)&(abs(df_3.pval) < 0.05), 'replicate'] = 1
-df_3.groupby(['weighting']).replicate.mean()
+res_3 = df_3.groupby(['weighting']).replicate.mean()
+res_3.plot(kind = 'bar', color = 'skyblue', edgecolor = 'black', linewidth = 1.2, figsize = (10,6), rot = 0, fontsize = 12)
+plt.xlabel('Weighting Scheme')
+plt.ylabel('Proportion of Replicating Factors')
+plt.title('Proportion of Replicating Factors by Weighting (Factor Model)')
+plt.xticks(rotation = 0)
+plt.xticks(np.arange(3), ['Equal Weighted', 'Value Weighted', 'Value Weighted with Cap'])
+vals = plt.gca().get_yticks()
+plt.gca().set_yticklabels(['{:.0f}%'.format(x*100) for x in vals])
+plt.savefig(out_path.format('3.png'), bbox_inches = 'tight')
+plt.savefig(out_path.format('3.pdf'), bbox_inches = 'tight')
 #%% (4)
 # Bonferroni Adjustment
 df_4 = df_3[['name','weighting','alpha','pval']].copy()
 df_4['replicate'] = 0
 df_4.loc[(df_4.alpha > 0)&(abs(df_4.pval) < 0.05/df_4.name.nunique()), 'replicate'] = 1
-df_4.groupby(['weighting']).replicate.mean()
+res_4 = df_4.groupby(['weighting']).replicate.mean()
+res_4.plot(kind = 'bar', color = 'skyblue', edgecolor = 'black', linewidth = 1.2, figsize = (10,6), rot = 0, fontsize = 12)
+plt.xlabel('Weighting Scheme')
+plt.ylabel('Proportion of Replicating Factors')
+plt.title('Proportion of Replicating Factors by Weighting (Bonferroni Adjustment)')
+plt.xticks(rotation = 0)
+plt.xticks(np.arange(3), ['Equal Weighted', 'Value Weighted', 'Value Weighted with Cap'])
+vals = plt.gca().get_yticks()
+plt.gca().set_yticklabels(['{:.0f}%'.format(x*100) for x in vals])
+plt.savefig(out_path.format('4.png'), bbox_inches = 'tight')
+plt.savefig(out_path.format('4.pdf'), bbox_inches = 'tight')
+
 #%% (5)
 # Benjamini-Hochberg
 df_5 = df_3[['name','weighting','alpha','pval']].copy()
@@ -80,7 +126,17 @@ df_5['ratio'] = df_5.groupby(['weighting']).cumcount()+1
 df_5['ratio'] = df_5['ratio'] / df_5.groupby(['weighting'])['ratio'].transform('count') 
 df_5['replicate'] = 0
 df_5.loc[(df_5.alpha > 0)&(df_5.pval < df_5.ratio*0.05), 'replicate'] = 1
-df_5.groupby(['weighting']).replicate.mean()
+res_5 = df_5.groupby(['weighting']).replicate.mean()
+res_5.plot(kind = 'bar', color = 'skyblue', edgecolor = 'black', linewidth = 1.2, figsize = (10,6), rot = 0, fontsize = 12)
+plt.xlabel('Weighting Scheme')
+plt.ylabel('Proportion of Replicating Factors')
+plt.title('Proportion of Replicating Factors by Weighting (Benjamini-Hochberg Adjustment)')
+plt.xticks(rotation = 0)
+plt.xticks(np.arange(3), ['Equal Weighted', 'Value Weighted', 'Value Weighted with Cap'])
+vals = plt.gca().get_yticks()
+plt.gca().set_yticklabels(['{:.0f}%'.format(x*100) for x in vals])
+plt.savefig(out_path.format('5.png'), bbox_inches = 'tight')
+plt.savefig(out_path.format('5.pdf'), bbox_inches = 'tight')
 #%% (6)
 estimation_df = df.groupby(['name','weighting'])[['date','ret','model']].apply(lambda x: time_series_regression(x, market_return, list(x.model.unique()),alpha_test = False)).to_frame().reset_index()
 estimation_df[['coef','pval']] = pd.DataFrame(estimation_df[0].tolist(), index= estimation_df.index)
@@ -132,7 +188,8 @@ for cluster_1 in tqdm(clusters):
         results_vw_cap[cluster_1,cluster_2] = tempt_vw_cap/number
 
 # %%
-pd.DataFrame(results_vw_cap, index = cluster_key, columns = cluster_key)
+pd.DataFrame(results_vw_cap, index = cluster_key, columns = cluster_key).to_latex(out_path.format('6.tex'), float_format="%.2f",column_format="l" + "c"*len(cluster_key))
+
 #%%
 
 cluster_key = list(cluster_key)

@@ -1,0 +1,129 @@
+\documentclass[hidelinks,12pt]{article}
+\usepackage[a4paper,width=150mm,top=25mm,bottom=25mm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{apacite}
+\usepackage{natbib}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{ragged2e}
+\usepackage[font={footnotesize,bf}]{caption}
+\usepackage[nottoc,numbib]{tocbibind}
+\usepackage{multirow}
+\usepackage{placeins}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Overleaf Example},
+    pdfpagemode=FullScreen,
+    }
+
+
+\linespread{1.5}
+
+\begin{document}
+
+\begin{titlepage}
+    \begin{center}
+        \vspace*{1cm}
+        
+        
+        % \vfill
+        
+        \large
+        \textbf{Big Data Asset Pricing \\ Exercise 3: Factor Replication Analysis}
+            
+        
+        \normalsize
+        Seyyed Morteza Aghajanzadeh \\
+        Department of Finance \\
+        Stockholm School of Economics
+        
+        \vfill
+        \normalsize
+        \justifying
+        \noindent
+        \textbf{Statement:} I certify with my signature that I have solved the exercise according to the Code of Professional Conduct and Ethics. 
+        For example, I have not plagiarized others, but, instead, solved the exercise myself (possibly with allowed collaboration with other students), and I have referenced my sources appropriately.
+
+        \vfill
+        
+        \vspace{0.8cm}
+            
+        
+        \vspace{0.8cm}
+        \normalsize
+        \centering
+        2024-01
+            
+    \end{center}
+\end{titlepage}
+
+\section{}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.95\textwidth]{out/1.pdf}
+\end{figure}
+
+\FloatBarrier
+
+\section{}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.95\textwidth]{out/2.pdf}
+\end{figure}
+
+\FloatBarrier
+
+\section{}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.95\textwidth]{out/3.pdf}
+\end{figure}
+
+\FloatBarrier
+
+\section{}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.95\textwidth]{out/4.pdf}
+\end{figure}
+
+\FloatBarrier
+
+\section{}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.95\textwidth]{out/5.pdf}
+\end{figure}
+
+\FloatBarrier
+\section{}
+\begin{table}[htbp]
+    \centering
+    \resizebox{\textwidth}{!}{%
+        \input{out/6.tex}
+    }
+\end{table}
+
+\FloatBarrier
+
+I calculate the $\Sigma^{\text{block}}$ and $C^{\text{block}}$ as mentioned in the exercise. 
+
+\section{}
+I could not manage to run the maximum likelihood estimation for estimating the $\tau_c$ and $\tau_w$ parameters. 
+
+\appendix
+
+\section*{Appendix}
+
+Here you can find the python code that I used to solve the exercise. \href{https://github.com/mortezaaghajanzadeh/BDAP/tree/main/Assignments/Assignment3}{Link to the GitHub repository.}
+
+\end{document}
