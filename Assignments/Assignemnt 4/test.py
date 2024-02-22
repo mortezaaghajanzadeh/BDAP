@@ -98,7 +98,49 @@ def find_mse(lambda_0):
         mse_scores.append(mse)
     return np.mean(mse_scores)
 
-range_ = np.arange(0, 1e4, 100)
-mse_res = [find_mse(lambda_0) for lambda_0 in tqdm(range_)]
-plt.plot(range_, mse_res)
-# %%
+
+
+ranges = [np.arange(0, 1e4, 1e2), np.arange(-1e2, 1e2, 10),np.arange(-1, 1, 0.01)]
+min_mse_lambda = 0
+for _,range_ in enumerate(ranges):
+    range_ += min_mse_lambda
+    mse_res = [find_mse(lambda_0) for lambda_0 in tqdm(range_)]
+    if _ == 0:
+        plt.plot(range_, mse_res)
+        plt.xlabel('Lambda')
+        plt.ylabel('Mean Squared Error')
+        plt.title('Ridge Regression')
+        plt.savefig(out_path + '2_2.png', dpi=300, bbox_inches='tight')
+        plt.savefig(out_path + '2_2.pdf', dpi=300, bbox_inches='tight')
+    # Find the minimum
+    min_mse = np.min(mse_res)
+    min_mse_index = np.argmin(mse_res)
+    min_mse_lambda = range_[min_mse_index]
+print(f'Minimum MSE: {min_mse} at lambda: {min_mse_lambda}')
+model = Ridge(alpha=min_mse_lambda)
+print(f'Coefficients based on the optimal lambda: {model.fit(X, y).coef_}')
+# %% (c)
+# Random Forest
+from sklearn.ensemble import RandomForestRegressor
+
+dt = RandomForestRegressor(n_estimators=10, max_depth=4,max_features= 3,min_samples_leaf=1, random_state=1)
+dt.fit(X, y,)
+
+params_dt = {
+    'max_features': [1, 2, 3],
+    'max_depth': [1,2,3],
+    'min_samples_leaf': [1,10]
+}
+
+from sklearn.model_selection import GridSearchCV
+
+# Instantiate grid_dt
+grid_dt = GridSearchCV(estimator=dt,
+                       param_grid=params_dt,
+                       scoring='neg_mean_squared_error',
+                       cv=5,
+                       n_jobs=-1)
+
+grid_dt.fit(X, y)
+best_model = grid_dt.best_estimator_
+print(f'Best model: {best_model}')
