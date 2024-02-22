@@ -1,0 +1,251 @@
+#### Python code
+
+# packages to install and load
+import numpy as np
+import pandas as pd
+from pandas.tseries.offsets import MonthEnd
+from scipy.stats import pearsonr
+import matplotlib.pyplot as plt
+import zipfile
+
+start_date = '1926-07-31'
+end_date = '2021-12-31'
+
+# NOTE: change "C:\data_folder\" to destination on your drive
+
+# function to load data
+def load_data():
+    # loading CRSP and Compustat data exported via WRDS SAS Studio; can also load via API
+    zf = zipfile.ZipFile(r'C:\data_folder\Data_export.zip')
+    df_crsp = pd.read_csv(zf.open('CRSP_export.csv', 'r'))
+    df_comp = pd.read_csv(zf.open('Compustat_export.csv', 'r'))
+    zf.close()
+
+    # setting date-time indices and checking for duplicates
+    df_crsp['eom'] = pd.to_datetime(df_crsp['eom'], format='%Y%m%d')
+    df_crsp['year'] = df_crsp.eom.dt.year
+    df_crsp['month'] = df_crsp.eom.dt.month
+    df_crsp.columns = df_crsp.columns.str.lower()
+    df_crsp['me_lag'] = df_crsp.groupby('permno')['me'].shift(1)  # creating lagged market caps
+
+    df_comp['eom'] = pd.to_datetime(df_comp['eom'], format='%Y%m%d')
+    df_comp['year'] = df_comp['eom'].dt.year
+    df_comp['month'] = df_comp['eom'].dt.month
+    df_comp = df_comp.drop_duplicates(subset=['gvkey', 'year'], keep='last') # keeping last obs in a year
+    df_comp = df_comp.drop(['datadate'], axis=1)
+    df_comp = df_comp[df_comp.curcd=="USD"] #only USD-denom firms
+    df_comp.gvkey = df_comp.gvkey.astype(float) #setting gvkey's to float in order to merge with CRSP
+
+    #loading moody's data and re-arranging (from FF website); https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/Historical_BE_Data.zip
+    df_moodys = pd.read_fwf(r'C:\data_folder\DFF_BE_With_Nonindust.txt', header=None)
+
+    #converting columns into years
+    years = list(range(1926, 2002)) # This generates years from 1926 to 2001
+    column_mapping = {df_moodys.columns[i]: year for i, year in enumerate(years, start=3)}
+    df_moodys.rename(columns=column_mapping, inplace=True)
+
+    df_moodys = df_moodys.drop([1,2], axis=1) #dropping start/end year
+    df_moodys = df_moodys.rename(columns={0: 'permno'}) #renaming permno column
+    df_moodys = df_moodys.melt(id_vars='permno', var_name='year', value_name='sheq') #creating long-form frame
+    df_moodys = df_moodys[df_moodys.sheq!=-99.99000] #removing missing values
+    df_moodys = df_moodys.sort_values(['permno', 'year'])
+    df_moodys['year'] = df_moodys['year'].astype(int) - 1 #lagging to reporting year (Moody's shows when publicly available)
+
+    # merging data together to create b/m values based on year-end (December) data; merging on year and keeping last observations
+    df_comp = df_comp.merge(df_crsp[df_crsp.month==12], how='outer', on=['year', 'gvkey']) #outer merge to add market equity and permno at December
+    df_comp = df_comp.merge(df_moodys, how='outer', on=['year', 'permno']) # outer merge on Moody's
+
+    # now creating book values and B/M (see FF for definition: https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/variable_definitions.html)
+    df_comp['se'] = df_comp['seq'].fillna(df_comp['ceq'] + df_comp['pstk']).fillna(df_comp['at'] - df_comp['lt'])
+    df_comp['preferred_stock'] = df_comp['pstkrv'].fillna(df_comp['pstkl']).fillna(df_comp['pstk']).fillna(0)
+    df_comp['deferred_tax'] = df_comp['txditc'].fillna(0)
+    df_comp['be'] = df_comp['se'] + df_comp['deferred_tax'] - df_comp['preferred_stock']
+    df_comp['be'] = df_comp['be'].fillna(df_comp['sheq']) #filling with Moody's in case Compustat n.a.
+    df_comp['bm'] = df_comp['be'] / df_comp['me_company'] #December B/M (using market equity of all share classes)
+    df_comp['eom'] = pd.to_datetime(((df_comp['year']+1).astype(str) + '-06-30'), format='%Y-%m-%d') #moving date to June following year for merge (i.e. lagging at least 6 months)
+
+    # merging the lagged b/m values back to the dataframe of returns
+    df_crsp = df_crsp.merge(df_comp[['permno', 'eom', 'bm']], how='left', on=['permno', 'eom'])
+
+    # setting other data requirements as per FF
+    df_crsp = df_crsp[df_crsp['shrcd'].isin([10, 11])] #keeping only stocks (JKP data limited to 10/11/12 in US, so just excluding 12, which is non-US incorp. firms)
+    df_crsp = df_crsp[df_crsp['exchcd'].isin([1, 2, 3])] #keeping NYSE/NASDAQ/Amex
+    df_crsp = df_crsp.drop(df_crsp[df_crsp.ret == 'B'].index) #removing returns that are not numbers
+    df_crsp = df_crsp.drop(df_crsp[df_crsp.ret == 'C'].index) #removing returns that are not numbers
+    df_crsp = df_crsp.drop(df_crsp[df_crsp.price == -99].index) #removing observations where CRSP indicates missing value
+    df_crsp = df_crsp.drop(['price', 'bidask', 'shrcd', 'gvkey', 'permco'], axis=1) #removing a few columns not needed
+    df_crsp['bm'] = np.where(df_crsp.bm>0, df_crsp.bm, np.nan) #require strictly positive B/M
+
+    # creating B/M thresholds at June using only NYSE
+    df_thresholds = df_crsp[(df_crsp.month==6) & (df_crsp.exchcd==1) & (df_crsp.bm.notna())][['eom', 'permno', 'bm']]
+    bm_breakpoints = df_thresholds.groupby('eom')['bm'].quantile([0.3, 0.7]).unstack()
+    bm_breakpoints.columns = ['bm_30th', 'bm_70th']
+
+    # merging back thresholds to all observations and defining value/growth firms
+    df_crsp = df_crsp.merge(bm_breakpoints.reset_index(), how='left', on=['eom'])
+    df_crsp['value'] = np.where(df_crsp.bm >= df_crsp.bm_70th, 1, np.nan)
+    df_crsp['growth'] = np.where(df_crsp.bm <= df_crsp.bm_30th, 1, np.nan)
+
+    #loading FF NYSE cutoffs for big/small threshold (could also be generated using our CRSP data); https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/ME_Breakpoints_CSV.zip
+    ff_nyse_cutoffs = pd.read_csv(r'C:\data_folder\nyse_cutoffs_ff.csv',
+                               index_col='eom', parse_dates=True)
+    ff_nyse_cutoffs.index = ff_nyse_cutoffs.index.to_period('M').to_timestamp('M') #shifting to end-of-month dates
+    ff_nyse_cutoffs = ff_nyse_cutoffs.reset_index()
+    df_crsp = df_crsp.merge(ff_nyse_cutoffs, how='left', on=['eom'])
+    df_crsp['big'] = np.where(df_crsp.me_company>=df_crsp.nyse_p50, 1, 0) # big/small dummy
+
+    # loading FF B/M cutoffs for comparison with outs; https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/BE-ME_Breakpoints_CSV.zip
+    ff_bm_cutoffs = pd.read_csv(r'C:\data_folder\bm_cutoffs_ff.csv').set_index(
+        'year')
+    ff_bm_cutoffs.index = pd.to_datetime(ff_bm_cutoffs.index, format='%Y') + MonthEnd(6)
+
+    # plotting comparison
+    plt.plot(bm_breakpoints['bm_30th'], label='30 (growth)', color='tab:green')
+    plt.plot(bm_breakpoints['bm_70th'], label='70 (value)', color='tab:red')
+    plt.plot(ff_bm_cutoffs['30th'], label='FF breakpoints', color='black', linestyle='dashed')
+    plt.plot(ff_bm_cutoffs['70th'], label=None, color='black', linestyle='dashed')
+    plt.legend()
+    plt.title('B/M breakpoints')
+    plt.show()
+
+    #print("Correlation with FF 70th and 30th B/M breakpoints")
+    #print(pearsonr(bm_breakpoints['bm_30th'], ff_bm_cutoffs['70th'])[0].round(3) * 100)
+    #print(pearsonr(bm_breakpoints['bm_30th'], ff_bm_cutoffs['30th'])[0].round(3) * 100)
+
+    # cross-sectional (XS) volatility
+    monthly_stdev = df_crsp.groupby('eom')['ret'].std()
+    plt.plot(monthly_stdev*100)
+    plt.title('XS std.dev. of monthly returns')
+    plt.ylim(0, 65)
+    plt.show()
+
+    # cross-sectional (XS) volatility by size groups
+    monthly_stdev_size = df_crsp.groupby(['eom', 'big'])['ret'].std().unstack(level=1)
+    plt.plot(monthly_stdev_size[0] * 100, label='Small', linewidth=1)
+    plt.plot(monthly_stdev_size[1] * 100, label='Big', linewidth=1)
+    plt.legend(loc='upper right')
+    plt.title('XS std.dev. of monthly returns (by size)')
+    plt.ylim(0, 75)
+    plt.show()
+
+    return df_crsp
+
+# function to sort factor
+def factor_sort(df_crsp):
+    # creating output dataframe
+    factor_portfolios = pd.DataFrame(index=df_crsp.eom.drop_duplicates().sort_values(axis=0),
+                                     columns=['small_value', 'small_growth', 'big_value', 'big_growth'])  # small low, neutral, high
+
+    #independent double sort on size and b/m using June t information from July t to June t+1, then repeating (NB: loop not the most efficient computationally)
+    for year in range(1926, 2021+1):
+        #extracting portfolios in June of each year
+        june_date = pd.to_datetime(str(year) + str("-06-30"))
+        weights = df_crsp[df_crsp.eom == june_date] #extracting returns from the date
+
+        #extracting permno of firms in each of the 4 relevant buckets
+        small_value = weights[(weights.big == 0) & (weights.value == 1)]['permno']
+        big_value = weights[(weights.big == 1) & (weights.value == 1)]['permno']
+        small_growth = weights[(weights.big == 0) & (weights.growth == 1)]['permno']
+        big_growth = weights[(weights.big == 1) & (weights.growth == 1)]['permno']
+
+        # looping over the next twelwe months (July t to June t+1) to create return portfolios
+        for months in range(1,12+1):
+            date = june_date + MonthEnd(months)
+            if date > pd.to_datetime(end_date):
+                continue
+            return_data = df_crsp[df_crsp.eom==date]
+            try:
+                factor_portfolios.loc[date]['small_value'] = return_data[return_data.permno.isin(small_value)].groupby('date').apply(lambda x: (x['ret_exc'] * x['me_lag']).sum() / x['me_lag'].sum()).iloc[0]
+                factor_portfolios.loc[date]['big_value'] = return_data[return_data.permno.isin(big_value)].groupby('date').apply(lambda x: (x['ret_exc'] * x['me_lag']).sum() / x['me_lag'].sum()).iloc[0]
+                factor_portfolios.loc[date]['small_growth'] = return_data[return_data.permno.isin(small_growth)].groupby('date').apply(lambda x: (x['ret_exc'] * x['me_lag']).sum() / x['me_lag'].sum()).iloc[0]
+                factor_portfolios.loc[date]['big_growth'] = return_data[return_data.permno.isin(big_growth)].groupby('date').apply(lambda x: (x['ret_exc'] * x['me_lag']).sum() / x['me_lag'].sum()).iloc[0]
+
+            except:
+                pass
+
+    factor_portfolios = factor_portfolios.astype(float) * 100 #converting to float and rescaling returns
+
+    long_short_factor = 1/2 * (factor_portfolios['small_value'] + factor_portfolios['big_value'])\
+                        - 1/2 * (factor_portfolios['small_growth'] + factor_portfolios['big_growth'])
+
+    long_short_factor = long_short_factor.dropna()
+
+    return long_short_factor
+
+# function to create outputs
+def factor_analysis(long_short_factor):
+    #loading FF HML factor
+    df_ff = pd.read_csv(r'C:\data_folder\FF_factors.csv')
+    df_ff = df_ff.set_index(pd.to_datetime(df_ff['eom'], format='%Y%m'))
+    df_ff.index = df_ff.index.to_period('M').to_timestamp('M')  # converting to end-of-month dates
+    df_ff = df_ff.drop(['eom'], axis=1)
+
+    # loading JKP HML factors (JKPFACTORS.COM)
+    df_jkp_hml_ew = pd.read_csv(
+        r'C:\data_folder\[usa]_[be_me]_[monthly]_[ew].csv')
+    df_jkp_hml_vw = pd.read_csv(
+        r'C:\data_folder\[usa]_[be_me]_[monthly]_[vw].csv')
+    df_jkp_hml_vwcap = pd.read_csv(
+        r'C:\data_folder\[usa]_[be_me]_[monthly]_[vw_cap].csv')
+
+    # combing JKP into one dataframe, setting time index and scaling returns
+    df_jkp_hml = pd.concat([df_jkp_hml_ew['date'], df_jkp_hml_ew['ret'], df_jkp_hml_vw['ret'], df_jkp_hml_vwcap['ret']], axis=1)
+    df_jkp_hml = df_jkp_hml.set_index(pd.to_datetime(df_jkp_hml['date'], format='%Y-%m-%d'))
+    df_jkp_hml.index = df_jkp_hml.index.to_period('M').to_timestamp('M')  # converting to end-of-month dates
+    df_jkp_hml = df_jkp_hml.drop(['date'], axis=1)
+    df_jkp_hml.columns = ['EW', 'VW', 'VW_cap']
+    df_jkp_hml = df_jkp_hml * 100
+
+    # some descriptive statistics of factors of our vs. FF' HML factor
+    factor_stats = pd.DataFrame(index=['monthly', 'annual'], columns=['mean', 'std dev', 'SR'])
+    factor_stats.loc['monthly']['mean'] = long_short_factor.mean()
+    factor_stats.loc['monthly']['std dev'] = long_short_factor.std()
+    factor_stats.loc['monthly']['SR'] = factor_stats.loc['monthly']['mean'] / factor_stats.loc['monthly']['std dev']
+    factor_stats.loc['annual']['mean'] = long_short_factor.mean() * 12
+    factor_stats.loc['annual']['std dev'] = long_short_factor.std() * 12 ** 0.5
+    factor_stats.loc['annual']['SR'] = factor_stats.loc['annual']['mean'] / factor_stats.loc['annual']['std dev']
+
+    factor_stats_FF = pd.DataFrame(index=['monthly', 'annual'], columns=['mean', 'std dev', 'SR'])
+    factor_stats_FF.loc['monthly']['mean'] = df_ff['HML'].mean()
+    factor_stats_FF.loc['monthly']['std dev'] = df_ff['HML'].std()
+    factor_stats_FF.loc['monthly']['SR'] = factor_stats_FF.loc['monthly']['mean'] / factor_stats_FF.loc['monthly']['std dev']
+    factor_stats_FF.loc['annual']['mean'] = df_ff['HML'].mean() * 12
+    factor_stats_FF.loc['annual']['std dev'] = df_ff['HML'].std() * 12 ** 0.5
+    factor_stats_FF.loc['annual']['SR'] = factor_stats_FF.loc['annual']['mean'] / factor_stats_FF.loc['annual']['std dev']
+
+    print("HML factor stats")
+    print(factor_stats.astype(float).round(2))
+    print("FF HML factor stats")
+    print(factor_stats_FF.astype(float).round(2))
+    print("Correlation with FF factor")
+    print(pearsonr(long_short_factor, df_ff['HML'])[0].round(2) * 100)
+
+    plt.plot(long_short_factor.cumsum(), label='HML factor')
+    plt.plot(df_ff['HML'].cumsum(), label='FF HML factor')
+    plt.title('Comparison with Fama-French')
+    plt.ylabel('Simple cumulative returns (%)')
+    plt.legend()
+    plt.show()
+
+    plt.plot(long_short_factor[long_short_factor.index.isin(df_jkp_hml.index)].cumsum(), label='HML factor')
+    plt.plot(df_jkp_hml['EW'].cumsum(), label='JKP EW HML')
+    plt.plot(df_jkp_hml['VW'].cumsum(), label='JKP VW HML')
+    plt.plot(df_jkp_hml['VW_cap'].cumsum(), label='JKP VW-cap HML')
+    plt.title('HML factor vs JKP equivalents')
+    plt.ylabel('Simple cumulative returns (%)')
+    plt.legend()
+    plt.show()
+
+    print("Correlation with JKP EW")
+    print(pearsonr(long_short_factor['1950-11-30':end_date], df_jkp_hml['EW'])[0].round(2)*100)
+    print("Correlation with JKP VW")
+    print(pearsonr(long_short_factor['1950-11-30':end_date], df_jkp_hml['VW'])[0].round(2)*100)
+    print("Correlation with JKP VW capped")
+    print(pearsonr(long_short_factor['1950-11-30':end_date], df_jkp_hml['VW_cap'])[0].round(2)*100)
+
+    return None
+
+# run functions below to output results
+df_crsp = load_data()
+long_short_factor = factor_sort(df_crsp)
+factor_analysis(long_short_factor)

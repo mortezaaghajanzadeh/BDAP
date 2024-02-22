@@ -1,0 +1,93 @@
+/* Adjusted code from Jensen, Kelly, and Pedersen: WRDS SAS Studio */
+
+
+/* Prepare CRSP data and add gvkey for linking with Compustat */
+proc sql;
+	create table crsp_m as
+	select a.permno, a.permco, a.date, intnx('month', a.date,0,'E') as eom format=YYMMDDN8., (a.prc < 0) as bidask, abs(a.prc) as prc, a.shrout/1000 as shrout, calculated prc * calculated shrout as me, a.ret,
+	   a.prc as price, b.shrcd, b.exchcd, c.gvkey, c.liid as iid
+	from crsp.msf as a 
+	left join crsp.msenames as b
+	   on a.permno=b.permno and a.date>=namedt and a.date<=b.nameendt
+	left join crsp.ccmxpf_lnkhist as c
+	   on a.permno=c.lpermno and (a.date>=c.linkdt or missing(c.linkdt)) and 
+	   (a.date<=c.linkenddt or missing(c.linkenddt)) and c.linktype in ('LC', 'LU', 'LS');
+quit;
+
+/* Add delisting returns */
+proc sql;
+	create table crsp_m2 as
+	select a.*, b.dlret, b.dlstcd
+	from crsp_m as a left join crsp.msedelist as b
+	on a.permno=b.permno and year(a.date)=year(b.dlstdt) and month(a.date)=month(b.dlstdt);
+quit;
+
+/* Adjust for delisting returns */
+data crsp_m3; 
+	set crsp_m2; 
+	if missing(dlret) and (dlstcd=500 or (520<=dlstcd<=584)) then dlret=-0.3; /*If delisting is missing and is for performance related reasons. Set to -30%.*/
+	if missing(ret) and not missing(dlret) then ret=0;
+	ret= (1+ret)*(1+coalesce(dlret, 0))-1; /*If missing set to zero*/
+	drop dlret dlstcd;
+run;
+
+/* Create excess returns */
+proc sql;
+	create table crsp_m4 as 
+	select a.*, a.ret-coalesce(b.t30ret, c.rf) as ret_exc /* use crsp.mcti but FF also has monthly updates */
+	from crsp_m3 as a 
+	left join crsp.mcti as b 
+		on year(a.date)=year(b.caldt) and month(a.date)=month(b.caldt)
+	left join ff.factors_monthly as c 
+		on year(a.date)=year(c.date) and month(a.date)=month(c.date);
+quit;
+
+/* Calculate combined company market cap by summing over PERMCO */
+proc sql;
+	create table crsp_m5 as 
+	select *, sum(me) as me_company
+	from crsp_m4
+	group by permco, date;
+quit;
+
+/* Annual accounting data from Compustat (FUNDA)*/
+proc sql;
+	create table funda as
+	select gvkey, iid, datadate, intnx('month', datadate,0,'E') as eom format=YYMMDDN8., curcd, at, lt, seq, ceq, txditc, txdb, itcb, pstkrv, pstkl, pstk, csho
+	from comp.funda
+	where indfmt='INDL' and datafmt='STD' and popsrc='D' and consol='C';
+quit;
+
+/* Ensuring unique Compustat dataset */
+proc sort data=funda nodupkey; by gvkey datadate; run;
+
+/* Example of improving variable coverage following DFF (2000); can also do in Python */
+data funda2;
+	set funda;
+	def_taxes_credit = coalesce(txditc, txdb+itcb, 0);
+	pref_stock = coalesce(pstkrv, pstkl, pstk, 0);
+run;
+
+/* note: adding Moody's data and generating book equity variable in python */
+
+/* Exporting data files */
+proc export data=work.crsp_m5
+    outfile="~/Global Data/CRSP_export.csv"
+    dbms=csv REPLACE;
+run;	
+
+proc export data=work.funda2
+    outfile="~/Global Data/Compustat_export.csv"
+    dbms=csv REPLACE;
+run;
+
+/* Creating a ZIP file with ODS PACKAGE */
+ods package(newzip) open nopf;
+ods package(newzip) add file="~/Global Data/CRSP_export.csv";
+ods package(newzip) add file="~/Global Data/Compustat_export.csv";
+ods package(newzip) publish archive 
+  properties(
+   archive_name="Data_export.zip" 
+   archive_path="~/Global Data/"
+  );
+ods package(newzip) close;
