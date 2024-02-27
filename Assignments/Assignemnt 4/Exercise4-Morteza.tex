@@ -23,7 +23,7 @@
     pdftitle={Overleaf Example},
     pdfpagemode=FullScreen,
     }
-
+\renewcommand{\thesubsection}{\thesection.\alph{subsection}}
 
 \linespread{1.5}
 
@@ -80,6 +80,53 @@
     \centering
     \caption{The table shows the results of the Fama-Macbeth regression.}
     \resizebox{.9\textwidth}{!}{\input{out/2_1.tex}}
+\end{table}
+
+\subsection{}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.95\textwidth]{out/2_2.pdf}
+\end{figure}
+
+\FloatBarrier
+\subsection{}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.75\textwidth]{out/2_3_1.pdf}
+    \includegraphics[width=.75\textwidth]{out/2_3_2.pdf}
+    \includegraphics[width=.75\textwidth]{out/2_3_3.pdf}
+\end{figure}
+
+
+\FloatBarrier
+
+\section{}
+\begin{table}[htbp]
+    \centering
+    \caption{}
+    \resizebox{!}{!}{\input{out/3.tex}}
+\end{table}
+
+\section{}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.75\textwidth]{out/4.pdf}
+\end{figure}
+
+\section{}
+\subsection{}
+\begin{table}[htbp]
+    \centering
+    \caption{}
+    \resizebox{!}{!}{\input{out/5_a.tex}}
+\end{table}
+
+\subsection{}
+\begin{table}[htbp]
+    \centering
+    \caption{}
+    \resizebox{!}{!}{\input{out/5_b.tex}}
 \end{table}
 
 

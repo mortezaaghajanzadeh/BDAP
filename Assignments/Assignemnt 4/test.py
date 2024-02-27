@@ -53,14 +53,26 @@ from linearmodels import FamaMacBeth
 etdata = in_sample_df.set_index(['id','date']).copy()
 results = FamaMacBeth(etdata.f_ret, etdata[prediction_model]).fit(cov_type='kernel', kernel='newey-west', bandwidth=len(etdata) ** 0.25)
 
+from linearmodels import PanelOLS
+
+# Perform pooled OLS regression
+pooled_results = PanelOLS.from_formula('f_ret ~ ' + ' + '.join(prediction_model), data=etdata).fit(cov_type='kernel', kernel='newey-west', bandwidth=len(etdata) ** 0.25)
+
+# Assign the pooled OLS results to a variable
+# model_a = results
+model_a = pooled_results
+
+
+
+
 # Save results as LaTeX output
 latex_output = results.summary.tables[1].as_latex_tabular(center = False, column_format = 'l' + 'c'*len(prediction_model), longtable = True, escape = False,bold_rows = False,bold_cols = False)
 
 # Save LaTeX output to a file
 with open(out_path + '2_1.tex', 'w') as file:
     file.write(latex_output)
-# %%
-# b Ridge regression   
+# %% 2(b)
+# Ridge regression   
 from sklearn.linear_model import Ridge
 from sklearn.model_selection import KFold
 from sklearn.metrics import mean_squared_error
@@ -119,20 +131,27 @@ for _,range_ in enumerate(ranges):
 print(f'Minimum MSE: {min_mse} at lambda: {min_mse_lambda}')
 model = Ridge(alpha=min_mse_lambda)
 print(f'Coefficients based on the optimal lambda: {model.fit(X, y).coef_}')
-# %% (c)
+model_b = model.fit(X, y)
+# %% 2(c)
 # Random Forest
 from sklearn.ensemble import RandomForestRegressor
+import matplotlib.pyplot as plt
+# prediction_model = characteristics
 
-dt = RandomForestRegressor(n_estimators=10, max_depth=4,max_features= 3,min_samples_leaf=1, random_state=1)
-dt.fit(X, y,)
+# X = in_sample_df[prediction_model].values
+# y = in_sample_df['f_ret'].values
+
+dt = RandomForestRegressor(max_depth=4, max_features=3, min_samples_leaf=1, random_state=1)
+dt.fit(X, y)
 
 params_dt = {
     'max_features': [1, 2, 3],
-    'max_depth': [1,2,3],
-    'min_samples_leaf': [1,10]
+    'max_depth': [1, 2, 3],
+    'min_samples_leaf': [1, 10]
 }
 
 from sklearn.model_selection import GridSearchCV
+
 
 # Instantiate grid_dt
 grid_dt = GridSearchCV(estimator=dt,
@@ -144,3 +163,199 @@ grid_dt = GridSearchCV(estimator=dt,
 grid_dt.fit(X, y)
 best_model = grid_dt.best_estimator_
 print(f'Best model: {best_model}')
+
+mse_results = []
+for param in params_dt['max_features']:
+    dt = RandomForestRegressor(max_depth= best_model.max_depth, max_features=param, min_samples_leaf=best_model.min_samples_leaf, random_state=1)
+    dt.fit(X, y)
+    y_pred = dt.predict(X)
+    mse = mean_squared_error(y, y_pred)
+    mse_results.append(mse)
+
+plt.plot(params_dt['max_features'], mse_results)
+plt.xlabel('Number of features')
+plt.ylabel('Mean Squared Error')
+plt.title('Mean Squared Error vs Number of Features')
+plt.savefig(out_path + '2_3_1.png', dpi=300, bbox_inches='tight')
+plt.savefig(out_path + '2_3_1.pdf', dpi=300, bbox_inches='tight')
+plt.show()
+
+mse_results = []
+for param in params_dt['max_depth']:
+    dt = RandomForestRegressor(max_depth=param, max_features=best_model.max_features, min_samples_leaf=best_model.min_samples_leaf, random_state=1)
+    dt.fit(X, y)
+    y_pred = dt.predict(X)
+    mse = mean_squared_error(y, y_pred)
+    mse_results.append(mse)
+
+plt.plot(params_dt['max_depth'], mse_results)
+plt.xlabel('Maximum Tree Depth')
+plt.ylabel('Mean Squared Error')
+plt.title('Mean Squared Error vs Maximum Tree Depth')
+plt.savefig(out_path + '2_3_2.png', dpi=300, bbox_inches='tight')
+plt.savefig(out_path + '2_3_2.pdf', dpi=300, bbox_inches='tight')
+plt.show()
+
+mse_results = []
+for param in params_dt['min_samples_leaf']:
+    dt = RandomForestRegressor(max_depth=best_model.max_depth, max_features=best_model.max_features, min_samples_leaf=param, random_state=1)
+    dt.fit(X, y)
+    y_pred = dt.predict(X)
+    mse = mean_squared_error(y, y_pred)
+    mse_results.append(mse)
+
+plt.plot(params_dt['min_samples_leaf'], mse_results)
+plt.xlabel('Minimum Samples per Leaf Node')
+plt.ylabel('Mean Squared Error')
+plt.title('Mean Squared Error vs Minimum Samples per Leaf Node')
+plt.savefig(out_path + '2_3_3.png', dpi=300, bbox_inches='tight')
+plt.savefig(out_path + '2_3_3.pdf', dpi=300, bbox_inches='tight')
+plt.show()
+#%% (3)
+import tabulate
+
+in_sample_r2_a = model_a.rsquared
+in_sample_r2_b = model_b.score(X, y)
+in_sample_r2_c = best_model.score(X, y)
+
+table = [["Model", "In-sample R2"],
+         ["Model A", in_sample_r2_a],
+         ["Model B", in_sample_r2_b],
+         ["Model C", in_sample_r2_c]]
+
+table_str = tabulate.tabulate(table, headers="firstrow", tablefmt="latex", floatfmt=".4f", numalign="center", stralign="center", colalign=("center", "center"))
+
+# Save table to a file
+with open(out_path + "3.tex", "w") as file:
+    file.write(table_str)
+
+print(table_str)
+# %% (4)
+# Feature importance
+importances_a = abs(model_a.params)
+importances_b = abs(model_b.coef_)
+importances_c = best_model.feature_importances_
+importances_df = pd.DataFrame({'Model A': importances_a, 'Model B': importances_b, 'Model C': importances_c})
+ax = importances_df.plot(kind='bar', title='Feature Importance', xlabel='Feature', ylabel='Importance', figsize=(10, 5), grid=True)
+ax.set_xticklabels(importances_df.index, rotation=45)
+plt.savefig(out_path + '4.png', dpi=300, bbox_inches='tight')
+plt.savefig(out_path + '4.pdf', dpi=300, bbox_inches='tight')
+plt.show()
+# %% (5)
+## (a)
+# Out-of-sample R2
+X = out_sample_df[prediction_model].values
+y = out_sample_df['f_ret'].values
+y_train = in_sample_df['f_ret'].values
+out_sample_r2_a = 1 - (sum(y - np.array(model_a.params) @ X.T) / sum((y - y_train.mean()) ** 2))
+out_sample_r2_b = model_b.score(X, y)
+out_sample_r2_c = best_model.score(X, y)
+
+table = [["Model", "Out-sample R2"],
+         ["Model A", out_sample_r2_a],
+         ["Model B", out_sample_r2_b],
+         ["Model C", out_sample_r2_c]]
+
+table_str = tabulate.tabulate(table, headers="firstrow", tablefmt="latex", floatfmt=".4f", numalign="center", stralign="center", colalign=("center", "center"))
+
+# Save table to a file
+with open(out_path + "5_a.tex", "w") as file:
+    file.write(table_str)
+# %% 5(b)
+def OLS_predict(X, params):
+    return np.array(params) @ X.T
+def weighted_average(group):
+    return np.average(group['f_ret'], weights=group['market_equity'])
+X = out_sample_df[prediction_model].values
+out_sample_df['pred_a'] = OLS_predict(X, model_a.params)
+out_sample_df['pred_b'] = model_b.predict(X)
+out_sample_df['pred_c'] = best_model.predict(X)
+df_5 = out_sample_df[['id', 'date', 'eom', 'market_equity', 'f_ret', 'pred_a', 'pred_b', 'pred_c']].copy()
+df_5['portfolio_a'] = df_5.groupby('eom')['pred_a'].transform(lambda x: pd.qcut(x, 5, labels=False, duplicates='drop')).astype(int)+1
+df_5['portfolio_b'] = df_5.groupby('eom')['pred_b'].transform(lambda x: pd.qcut(x, 5, labels=False, duplicates='drop')).astype(int)+1
+df_5['portfolio_c'] = df_5.groupby('eom')['pred_c'].transform(lambda x: pd.qcut(x, 5, labels=False, duplicates='drop')).astype(int)+1
+res5_df = pd.DataFrame(columns=['Model', 'Portfolio', 'Mean Return', 'Standard Deviation', 'Sharpe Ratio'])
+for model in ['a', 'b', 'c']:
+    mean_ret = df_5.groupby(['eom',f'portfolio_{model}']).apply(weighted_average,include_groups=False).reset_index().rename(columns={f'portfolio_{model}': 'portfolio', 0: f'portfolio_{model}'})
+    if len(res5_df) == 0:
+        res5_df = mean_ret
+    else:
+        res5_df = pd.merge(res5_df, mean_ret, on=['eom', 'portfolio'])
+
+res5_df = res5_df.pivot(index='portfolio', columns='eom').T.reset_index().rename(columns={'level_0': 'Model'}).rename_axis(None, axis=1)
+res5_df['long_short'] = res5_df[5] - res5_df[1]
+res5_df['eom'] = pd.to_datetime(res5_df['eom'], format='%Y%m%d').dt.to_period('M')
+
+
+
+factors_df = pd.read_csv(data_path + 'F-F_Research_Data_Factors.csv')
+factors_df['yearMonth'] = pd.to_datetime(factors_df['yearMonth'], format='%Y%m').dt.to_period('M')
+
+factors_df['mkt'] = factors_df['Mkt-RF'] + factors_df['RF']
+
+mapping_dict = dict(zip(factors_df.yearMonth, factors_df.RF))
+res5_df['rf'] = res5_df['eom'].map(mapping_dict)
+
+mapping_dict = dict(zip(factors_df.yearMonth, factors_df.mkt))
+res5_df['mkt'] = res5_df['eom'].map(mapping_dict)
+#%%
+
+import statsmodels.api as sm
+
+res5_df['excess_return'] = res5_df.long_short - res5_df.rf
+res5_df['excess_mkt'] = res5_df.mkt - res5_df.rf
+
+
+def CAPM_alpha(g):
+    g = g.dropna()
+    X = g['excess_mkt']
+    Y = g['excess_return']
+    X = sm.add_constant(X)
+
+    model = sm.OLS(Y, X).fit(cov_type='HAC',cov_kwds={'maxlags':int(len(Y)**0.25)}) 
+    return model.params['const']
+def CAPM_alpha_t(g):
+    g = g.dropna()
+    X = g['excess_mkt']
+    Y = g['excess_return']
+    X = sm.add_constant(X)
+
+    model = sm.OLS(Y, X).fit(cov_type='HAC',cov_kwds={'maxlags':int(len(Y)**0.25)}) 
+    return model.tvalues['const']
+
+def CAPM_residual(g):
+    g = g.dropna()
+    X = g['excess_mkt']
+    Y = g['excess_return']
+    X = sm.add_constant(X)
+
+    model = sm.OLS(Y, X).fit(cov_type='HAC',cov_kwds={'maxlags':int(len(Y)**0.25)}) 
+    return model.resid.std()
+
+mean_excess_return = res5_df.groupby('Model').excess_return.mean().to_frame().reset_index()
+t_stat = res5_df.groupby('Model').excess_return.apply(lambda x: x.mean()/x.std()).to_frame('t-stat').reset_index()
+alpha = res5_df.groupby('Model').apply(CAPM_alpha).to_frame('alpha').reset_index()
+alpha_t = res5_df.groupby('Model').apply(CAPM_alpha_t).to_frame('alpha_t').reset_index()
+Sharpe = (res5_df.groupby('Model').excess_return.mean() / res5_df.groupby('Model').excess_return.std()).to_frame('Sharpe Ratio').reset_index()
+information_ratio = (res5_df.groupby('Model').apply(CAPM_alpha) / res5_df.groupby('Model').apply(CAPM_residual)).to_frame('Information Ratio').reset_index()
+
+res_df = pd.DataFrame()
+res_df = pd.merge(mean_excess_return, t_stat)
+res_df = pd.merge(res_df, alpha, on='Model')
+res_df = pd.merge(res_df, alpha_t, on='Model')
+res_df = pd.merge(res_df, Sharpe, on='Model')
+res_df = pd.merge(res_df, information_ratio, on='Model')
+# res_df.to_latex(out_path + '5_b.tex', index=False, float_format="%.4f",column_format='l' + 'c'*6,)
+res_df.set_index("Model").rename(columns = {
+    'excess_return':'$r_i - r_f$',
+    't-stat':'t-stat',
+    'alpha':'$\\alpha$',
+    'alpha_t':'$t(\\alpha)$',
+    },
+    index = {
+        'portfolio_a':'Model A',
+        'portfolio_b':'Model B',
+        'portfolio_c':'Model C',
+    }).to_latex(out_path + '5_b.tex', index=False, float_format="%.4f",column_format='l' + 'c'*6,)
+
+
