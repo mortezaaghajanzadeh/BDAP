@@ -15,10 +15,11 @@ columns = ['id',
  'date',
  'eom',
  'source_crsp',
- 'size_grp','ret'] + characteristics
+ 'size_grp','ret','f_ret'] + characteristics
 #%%
 df = pd.read_csv(data_path + 'gbr.csv')
 df['date'] = pd.to_datetime(df['date'], format='%Y%m%d')
+#%%
 #%% (1)
 # a
 df = df.loc[df['date'] > start_time].copy()
@@ -35,8 +36,9 @@ df = df.loc[df.size_grp != 'nano'].copy()
 df[characteristics] = df.groupby('eom')[characteristics].transform(lambda x: x.fillna(x.median()))
 # f
 df[characteristics] = df.groupby('eom')[characteristics].transform(lambda x: (x - x.mean()) / x.std())
+df['ret'] = df['ret_exc']
+df['f_ret'] = df['ret_exc_lead1m']
 df = df[columns].copy()
-df['f_ret'] = df.groupby('id')['ret'].shift(-1)
 # %
 df['month'] = df['date'].dt.to_period('M')
 df.groupby('month').id.count().plot(title='Number of stocks per month', ylabel='Number of stocks', xlabel='Year', figsize=(10, 5), grid=True, legend=False, color='black',dashes=[6, 2])
@@ -284,40 +286,39 @@ for model in ['a', 'b', 'c']:
 
 res5_df = res5_df.pivot(index='portfolio', columns='eom').T.reset_index().rename(columns={'level_0': 'Model'}).rename_axis(None, axis=1)
 res5_df['long_short'] = res5_df[5] - res5_df[1]
-res5_df['eom'] = pd.to_datetime(res5_df['eom'], format='%Y%m%d').dt.to_period('M')
+res5_df['eom'] = pd.to_datetime(res5_df['eom'], format='%Y%m%d')
 
+factors_df = pd.read_csv(data_path + 'market_returns.csv')
+factors_df = factors_df.loc[factors_df.excntry == 'GBR'].copy()
+factors_df['RF'] = factors_df.mkt_vw - factors_df.mkt_vw_exc
+factors_df['mkt'] = factors_df.mkt_vw
+factors_df['eom'] = pd.to_datetime(factors_df['eom'], format='%Y-%m-%d')
 
-
-factors_df = pd.read_csv(data_path + 'F-F_Research_Data_Factors.csv')
-factors_df['yearMonth'] = pd.to_datetime(factors_df['yearMonth'], format='%Y%m').dt.to_period('M')
-
-factors_df['mkt'] = factors_df['Mkt-RF'] + factors_df['RF']
-
-mapping_dict = dict(zip(factors_df.yearMonth, factors_df.RF))
+mapping_dict = dict(zip(factors_df.eom, factors_df.RF))
 res5_df['rf'] = res5_df['eom'].map(mapping_dict)
 
-mapping_dict = dict(zip(factors_df.yearMonth, factors_df.mkt))
+mapping_dict = dict(zip(factors_df.eom, factors_df.mkt))
 res5_df['mkt'] = res5_df['eom'].map(mapping_dict)
+for i in range(1, 6):
+    res5_df[i] = res5_df[i] - res5_df.rf
 #%%
-
 import statsmodels.api as sm
 
-res5_df['excess_return'] = res5_df.long_short - res5_df.rf
+res5_df['excess_return'] = res5_df.long_short
 res5_df['excess_mkt'] = res5_df.mkt - res5_df.rf
 
 
-def CAPM_alpha(g):
+def CAPM_alpha(g,i):
     g = g.dropna()
     X = g['excess_mkt']
-    Y = g['excess_return']
+    Y = g[i]
     X = sm.add_constant(X)
-
     model = sm.OLS(Y, X).fit(cov_type='HAC',cov_kwds={'maxlags':int(len(Y)**0.25)}) 
     return model.params['const']
 def CAPM_alpha_t(g):
     g = g.dropna()
     X = g['excess_mkt']
-    Y = g['excess_return']
+    Y = g[i]
     X = sm.add_constant(X)
 
     model = sm.OLS(Y, X).fit(cov_type='HAC',cov_kwds={'maxlags':int(len(Y)**0.25)}) 
@@ -326,36 +327,50 @@ def CAPM_alpha_t(g):
 def CAPM_residual(g):
     g = g.dropna()
     X = g['excess_mkt']
-    Y = g['excess_return']
+    Y = g[i]
     X = sm.add_constant(X)
 
     model = sm.OLS(Y, X).fit(cov_type='HAC',cov_kwds={'maxlags':int(len(Y)**0.25)}) 
     return model.resid.std()
 
-mean_excess_return = res5_df.groupby('Model').excess_return.mean().to_frame().reset_index()
-t_stat = res5_df.groupby('Model').excess_return.apply(lambda x: x.mean()/x.std()).to_frame('t-stat').reset_index()
-alpha = res5_df.groupby('Model').apply(CAPM_alpha).to_frame('alpha').reset_index()
-alpha_t = res5_df.groupby('Model').apply(CAPM_alpha_t).to_frame('alpha_t').reset_index()
-Sharpe = (res5_df.groupby('Model').excess_return.mean() / res5_df.groupby('Model').excess_return.std()).to_frame('Sharpe Ratio').reset_index()
-information_ratio = (res5_df.groupby('Model').apply(CAPM_alpha) / res5_df.groupby('Model').apply(CAPM_residual)).to_frame('Information Ratio').reset_index()
+g = res5_df[res5_df.Model == 'portfolio_a']
+res_col = [ 1, 2, 3, 4, 5, 'long_short']
+res_dict = {}
+for i in res_col:
+    if i == 'long_short':
+        j = "LS"
+    else:
+        j = i
+    res_dict[j] = [g[i].mean(), g[i].mean() / g[i].std() * np.sqrt(len(g)), CAPM_alpha(g,i), CAPM_alpha_t(g),g[i].mean()/g[i].std() ,CAPM_alpha(g,i)/CAPM_residual(g)]
+res_df = pd.DataFrame(res_dict, index=['$r_i - r_f$', '$t_{stat}$', '$\\alpha_{CAPM}$', '$t_{\\alpha}$', 'Sharpe Ratio', 'IR'])
+res_df = res_df.T
+res_df.index.name = 'Portfolio'
+res_df.reset_index().to_latex(out_path + '5_b_a.tex', float_format="%.3f", escape=False,column_format='c' + 'c'*6, index=False)
 
-res_df = pd.DataFrame()
-res_df = pd.merge(mean_excess_return, t_stat)
-res_df = pd.merge(res_df, alpha, on='Model')
-res_df = pd.merge(res_df, alpha_t, on='Model')
-res_df = pd.merge(res_df, Sharpe, on='Model')
-res_df = pd.merge(res_df, information_ratio, on='Model')
-# res_df.to_latex(out_path + '5_b.tex', index=False, float_format="%.4f",column_format='l' + 'c'*6,)
-res_df.set_index("Model").rename(columns = {
-    'excess_return':'$r_i - r_f$',
-    't-stat':'t-stat',
-    'alpha':'$\\alpha$',
-    'alpha_t':'$t(\\alpha)$',
-    },
-    index = {
-        'portfolio_a':'Model A',
-        'portfolio_b':'Model B',
-        'portfolio_c':'Model C',
-    }).to_latex(out_path + '5_b.tex', index=False, float_format="%.4f",column_format='l' + 'c'*6,)
+g = res5_df[res5_df.Model == 'portfolio_b']
+res_dict = {}
+for i in res_col:
+    if i == 'long_short':
+        j = "LS"
+    else:
+        j = i
+    res_dict[j] = [g[i].mean(), g[i].mean() / g[i].std() * np.sqrt(len(g)), CAPM_alpha(g,i), CAPM_alpha_t(g),g[i].mean()/g[i].std() ,CAPM_alpha(g,i)/CAPM_residual(g)]
+res_df = pd.DataFrame(res_dict, index=['$r_i - r_f$', '$t_{stat}$', '$\\alpha_{CAPM}$', '$t_{\\alpha}$', 'Sharpe Ratio', 'IR'])
+res_df = res_df.T
+res_df.index.name = 'Portfolio'
+res_df.reset_index().to_latex(out_path + '5_b_b.tex', float_format="%.3f", escape=False,column_format='c' + 'c'*6,index=False)
+
+g = res5_df[res5_df.Model == 'portfolio_c']
+res_dict = {}
+for i in res_col:
+    if i == 'long_short':
+        j = "LS"
+    else:
+        j = i
+    res_dict[j] = [g[i].mean(), g[i].mean() / g[i].std() * np.sqrt(len(g)), CAPM_alpha(g,i), CAPM_alpha_t(g),g[i].mean()/g[i].std() ,CAPM_alpha(g,i)/CAPM_residual(g)]
+res_df = pd.DataFrame(res_dict, index=['$r_i - r_f$', '$t_{stat}$', '$\\alpha_{CAPM}$', '$t_{\\alpha}$', 'Sharpe Ratio', 'IR'])
+res_df = res_df.T
+res_df.index.name = 'Portfolio'
+res_df.reset_index().to_latex(out_path + '5_b_c.tex', float_format="%.3f", escape=False,column_format='c' + 'c'*6,index=False)
 
 

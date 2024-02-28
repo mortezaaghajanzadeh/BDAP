@@ -106,14 +106,14 @@
     \caption{}
     \resizebox{!}{!}{\input{out/3.tex}}
 \end{table}
-
+\FloatBarrier
 \section{}
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=.75\textwidth]{out/4.pdf}
 \end{figure}
-
+\FloatBarrier
 \section{}
 \subsection{}
 \begin{table}[htbp]
@@ -121,21 +121,100 @@
     \caption{}
     \resizebox{!}{!}{\input{out/5_a.tex}}
 \end{table}
+\FloatBarrier
+\subsection{}
+\begin{table}[htbp]
+    \centering
+    \caption{}
+    \caption*{\scriptsize\textmd{Panel A: Pooled OLS}}
+    \resizebox{0.65\textwidth}{!}{\input{out/5_b_a.tex}}
+    
+    \vspace{0.5cm} % Add space between tables
+    
+    \caption*{\scriptsize\textmd{Panel B: Ridge Regression}}
+    \resizebox{0.65\textwidth}{!}{\input{out/5_b_b.tex}}
+    
+    \vspace{0.5cm} % Add space between tables
+    
+    \caption*{\scriptsize\textmd{Panel C: Random Forest}}
+    \resizebox{0.65\textwidth}{!}{\input{out/5_b_c.tex}}
+\end{table}
+\FloatBarrier
+
+\section{}
+\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\thesubsection.\alph{subsubsection}}
+\setcounter{subsection}{1}
+\subsection{}
+\subsubsection{}
+\begin{table}[htbp]
+    \centering
+    \caption{The table shows the results of the Fama-Macbeth regression.}
+    \resizebox{.9\textwidth}{!}{\input{out/6_2.tex}}
+\end{table}
+\FloatBarrier
+\subsubsection{}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.95\textwidth]{out/6_2.pdf}
+\end{figure}
+\FloatBarrier
+\subsubsection{}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.75\textwidth]{out/6_3_1.pdf}
+    \includegraphics[width=.75\textwidth]{out/6_3_2.pdf}
+    \includegraphics[width=.75\textwidth]{out/6_3_3.pdf}
+\end{figure}
 
 \subsection{}
 \begin{table}[htbp]
     \centering
     \caption{}
-    \resizebox{!}{!}{\input{out/5_b.tex}}
+    \resizebox{!}{!}{\input{out/6_3.tex}}
 \end{table}
 
+\FloatBarrier
+\section{}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.75\textwidth]{out/6_4.pdf}
+\end{figure}
+\FloatBarrier
+\section{}
+\subsection{}
+\begin{table}[htbp]
+    \centering
+    \caption{}
+    \resizebox{!}{!}{\input{out/6_5_a.tex}}
+\end{table}
+\FloatBarrier
+\subsection{}
+\begin{table}[htbp]
+    \centering
+    \caption{}
+    \caption*{\scriptsize\textmd{Panel A: Pooled OLS}}
+    \resizebox{0.65\textwidth}{!}{\input{out/6_5_b_a.tex}}
+    
+    \vspace{0.5cm} % Add space between tables
+    
+    \caption*{\scriptsize\textmd{Panel B: Ridge Regression}}
+    \resizebox{0.65\textwidth}{!}{\input{out/6_5_b_b.tex}}
+    
+    \vspace{0.5cm} % Add space between tables
+    
+    \caption*{\scriptsize\textmd{Panel C: Random Forest}}
+    \resizebox{0.65\textwidth}{!}{\input{out/6_5_b_c.tex}}
+\end{table}
+\FloatBarrier
 
 
-
+\FloatBarrier
 \appendix
 
 \section*{Appendix}
 
-Here you can find the python code that I used to solve the exercise. \href{https://github.com/mortezaaghajanzadeh/BDAP/tree/main/Assignments/Assignment4}{Link to the GitHub repository.}
+Here you can find the python code that I used to solve the exercise. \href{https://github.com/mortezaaghajanzadeh/BDAP/tree/main/Assignments/Assignment 4}{Link to the GitHub repository.}
 
 \end{document}
