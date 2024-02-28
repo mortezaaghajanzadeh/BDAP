@@ -41,10 +41,7 @@ df['f_ret'] = df['ret_exc_lead1m']
 df = df[columns].copy()
 # %
 df['month'] = df['date'].dt.to_period('M')
-df.groupby('month').id.count().plot(title='Number of stocks per month', ylabel='Number of stocks', xlabel='Year', figsize=(10, 5), grid=True, legend=False, color='black',dashes=[6, 2])
-plt.savefig(out_path + '1.png', dpi=300, bbox_inches='tight')
-plt.savefig(out_path + '1.pdf', dpi=300, bbox_inches='tight')
-plt.show()
+
 # %%
 in_sample_df = df[df['date'] < in_sample_deadline].dropna().copy()
 out_sample_df = df[df['date'] >= in_sample_deadline].dropna().copy()
@@ -114,7 +111,7 @@ def find_mse(lambda_0):
 
 
 
-ranges = [np.arange(0, 1e4, 1e2), np.arange(-1e2, 1e2, 10),np.arange(-1, 1, 0.01)]
+ranges = [np.arange(0, 1e5, 1e3), np.arange(-1e3, 1e3, 10),np.arange(-1, 1, 0.01)]
 min_mse_lambda = 0
 for _,range_ in enumerate(ranges):
     range_ += min_mse_lambda
@@ -235,7 +232,9 @@ print(table_str)
 # %% (4)
 # Feature importance
 importances_a = abs(model_a.params)
+importances_a = importances_a/sum(importances_a)
 importances_b = abs(model_b.coef_)
+importances_b = importances_b/sum(importances_b)
 importances_c = best_model.feature_importances_
 importances_df = pd.DataFrame({'Model A': importances_a, 'Model B': importances_b, 'Model C': importances_c})
 ax = importances_df.plot(kind='bar', title='Feature Importance', xlabel='Feature', ylabel='Importance', figsize=(10, 5), grid=True)
@@ -250,6 +249,7 @@ X = out_sample_df[prediction_model].values
 y = out_sample_df['f_ret'].values
 y_train = in_sample_df['f_ret'].values
 out_sample_r2_a = 1 - (sum(y - np.array(model_a.params) @ X.T) / sum((y - y_train.mean()) ** 2))
+
 out_sample_r2_b = model_b.score(X, y)
 out_sample_r2_c = best_model.score(X, y)
 
@@ -279,19 +279,14 @@ df_5['portfolio_b'] = df_5.groupby('eom')['pred_b'].transform(lambda x: pd.qcut(
 df_5['portfolio_c'] = df_5.groupby('eom')['pred_c'].transform(lambda x: pd.qcut(x, 5, labels=False, duplicates='drop')).astype(int)+1
 res5_df = pd.DataFrame(columns=['Model', 'Portfolio', 'Mean Return', 'Standard Deviation', 'Sharpe Ratio'])
 for model in ['a', 'b', 'c']:
-    mean_ret = df_5.groupby([f'portfolio_{model}','eom']).apply(weighted_average,include_groups=False).reset_index().rename(columns={f'portfolio_{model}': 'portfolio', 0: f'portfolio_{model}'})
+    mean_ret = df_5.groupby([f'portfolio_{model}','eom']).apply(weighted_average).reset_index().rename(columns={f'portfolio_{model}': 'portfolio', 0: f'portfolio_{model}'})
     # print(mean_ret[mean_ret.portfolio == 5] )
     if len(res5_df) == 0:
         res5_df = mean_ret
     else:
         res5_df = pd.merge(res5_df, mean_ret, on=['eom', 'portfolio'], how='outer')
 
-model = 'c'
-df_5.groupby([f'portfolio_{model}','eom']).apply(weighted_average,include_groups=False).reset_index().rename(columns={f'portfolio_{model}': 'portfolio', 0: f'portfolio_{model}'}).portfolio.value_counts()
-# res5_df[res5_df.portfolio == 5]
-# df_5[df_5.eom == 20151231].portfolio_a.value_counts()
-# weighted_average(df_5[(df_5.eom == 20151231)&(df_5.portfolio_a == 5)])
-df_5[df_5.portfolio_c == 5].eom.value_counts()
+
 
 res5_df = res5_df.pivot(index='portfolio', columns='eom').T.reset_index().rename(columns={'level_0': 'Model'}).rename_axis(None, axis=1)
 res5_df['long_short'] = res5_df[5] - res5_df[1]

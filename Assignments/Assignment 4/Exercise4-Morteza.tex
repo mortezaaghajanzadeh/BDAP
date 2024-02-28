@@ -65,26 +65,29 @@
     \end{center}
 \end{titlepage}
 
+% Question 1
 \section{}
-
 \begin{figure}[htbp]
     \centering
+    \caption{The number of stocks per month.}
     \includegraphics[width=.95\textwidth]{out/1.pdf}
 \end{figure}
 
 \FloatBarrier
 
+% Question 2
 \section{}
 \subsection{}
 \begin{table}[htbp]
     \centering
-    \caption{The table shows the results of the Fama-Macbeth regression.}
+    \caption{The results of the Pooled OLS regression over training}
     \resizebox{.9\textwidth}{!}{\input{out/2_1.tex}}
 \end{table}
 
 \subsection{}
 \begin{figure}[htbp]
     \centering
+    \caption{The mean squared error on the validation set, as a function of $\lambda$.}
     \includegraphics[width=.95\textwidth]{out/2_2.pdf}
 \end{figure}
 
@@ -92,40 +95,54 @@
 \subsection{}
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=.75\textwidth]{out/2_3_1.pdf}
-    \includegraphics[width=.75\textwidth]{out/2_3_2.pdf}
-    \includegraphics[width=.75\textwidth]{out/2_3_3.pdf}
+    \caption{The mean squared error on the validation set, as a function of different features.}
+    \includegraphics[width=.55\textwidth]{out/2_3_1.pdf}
+    \includegraphics[width=.55\textwidth]{out/2_3_2.pdf}
+    \includegraphics[width=.55\textwidth]{out/2_3_3.pdf}
 \end{figure}
-
 
 \FloatBarrier
 
+% Question 3
 \section{}
+The results show that both the Pooled OLS (Model A) and Ridge regression (Model B) have the same in-sample R-squared, indicating that they explain a similar proportion of the variance in the data. However, the Random Forest model has a higher in-sample R-squared, suggesting that it provides a better fit to the data.
+
+A higher in-sample R-squared indicates that the Random Forest model captures more of the underlying patterns and relationships in the data, leading to a better prediction performance. This could be attributed to the Random Forest's ability to handle non-linear relationships and interactions between variables, which may not be adequately captured by the linear models like Pooled OLS and Ridge regression.
+
+It is important to note that while a higher in-sample R-squared suggests better performance within the training data, it does not necessarily guarantee better out-of-sample prediction accuracy. Therefore, it is crucial to evaluate the models' performance on unseen data to assess their generalization ability.
 \begin{table}[htbp]
     \centering
-    \caption{}
+    \caption{The In-sample R-squared for the Pooled OLS, Ridge Regression, and Random Forest.}
     \resizebox{!}{!}{\input{out/3.tex}}
 \end{table}
 \FloatBarrier
-\section{}
 
+% Question 4
+\section{}
+In this analysis, we explore the feature importance of each model: Pooled OLS, Ridge regression, and Random Forest. While both Pooled OLS and Ridge regression assign equal importance to the features, they both highlight the significance of the lagged return as the most influential factor. This aligns with existing literature, which suggests that the 12-month momentum serves as a robust predictor of future returns.
+However, where the models diverge is in the importance they assign to other features. 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=.75\textwidth]{out/4.pdf}
 \end{figure}
 \FloatBarrier
+
+% Question 5
 \section{}
+
 \subsection{}
+Here we compare the out-of-sample performance of the Pooled OLS, Ridge regression, and Random Forest models. The results show that the Pooled OLS outperform the Ridge regression and Random Forest in terms of out-of-sample R-squared. This suggests that the Pooled OLS model provides a better fit to the data and captures more of the underlying patterns and relationships, leading to better prediction performance. 
 \begin{table}[htbp]
     \centering
-    \caption{}
+    \caption{Out-of-sample R-squared for the Pooled OLS, Ridge Regression, and Random Forest.}
     \resizebox{!}{!}{\input{out/5_a.tex}}
 \end{table}
 \FloatBarrier
 \subsection{}
+I followed the instruction and create 5 portfolios based on the predicted returns for each model. The results show that the Ridge regression outperforms the Pooled OLS and Random Forest in terms of the Sharpe ratio. This suggests that the Ridge regression model provides a better risk-adjusted return, which is an important measure of investment performance.
 \begin{table}[htbp]
     \centering
-    \caption{}
+    \caption{Portfolio performance based on the predicted returns for the Pooled OLS, Ridge Regression, and Random Forest.}
     \caption*{\scriptsize\textmd{Panel A: Pooled OLS}}
     \resizebox{0.65\textwidth}{!}{\input{out/5_b_a.tex}}
     
@@ -142,6 +159,7 @@
 \FloatBarrier
 
 \section{}
+Now I use all the mentioned features to predict the returns. Unfortunately, my results for the Random forest model do not look reasonable and I could not fix the problem. I presented the results here following the previous structure. But I cannot discuss these results as they are not reliable.
 \renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
 \renewcommand{\thesubsubsection}{\thesubsection.\alph{subsubsection}}
 \setcounter{subsection}{1}
@@ -149,19 +167,21 @@
 \subsubsection{}
 \begin{table}[htbp]
     \centering
-    \caption{The table shows the results of the Fama-Macbeth regression.}
+    \caption{The results of the Pooled OLS regression.}
     \resizebox{.9\textwidth}{!}{\input{out/6_2.tex}}
 \end{table}
 \FloatBarrier
 \subsubsection{}
 \begin{figure}[htbp]
     \centering
+    \caption{The mean squared error on the validation set, as a function of $\lambda$.}
     \includegraphics[width=.95\textwidth]{out/6_2.pdf}
 \end{figure}
 \FloatBarrier
 \subsubsection{}
 \begin{figure}[htbp]
     \centering
+    \caption{The mean squared error on the validation set, as a function of different features.}
     \includegraphics[width=.75\textwidth]{out/6_3_1.pdf}
     \includegraphics[width=.75\textwidth]{out/6_3_2.pdf}
     \includegraphics[width=.75\textwidth]{out/6_3_3.pdf}
@@ -170,7 +190,7 @@
 \subsection{}
 \begin{table}[htbp]
     \centering
-    \caption{}
+    \caption{The In-sample R-squared for the Pooled OLS, Ridge Regression, and Random Forest.}
     \resizebox{!}{!}{\input{out/6_3.tex}}
 \end{table}
 
@@ -186,14 +206,14 @@
 \subsection{}
 \begin{table}[htbp]
     \centering
-    \caption{}
+    \caption{Out-of-sample R-squared for the Pooled OLS, Ridge Regression, and Random Forest.}
     \resizebox{!}{!}{\input{out/6_5_a.tex}}
 \end{table}
 \FloatBarrier
 \subsection{}
 \begin{table}[htbp]
     \centering
-    \caption{}
+    \caption{Portfolio performance based on the predicted returns for the Pooled OLS, Ridge Regression, and Random Forest.}
     \caption*{\scriptsize\textmd{Panel A: Pooled OLS}}
     \resizebox{0.65\textwidth}{!}{\input{out/6_5_b_a.tex}}
     

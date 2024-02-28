@@ -235,7 +235,9 @@ print(table_str)
 # %% (4)
 # Feature importance
 importances_a = abs(model_a.params)
+importances_a = importances_a/sum(importances_a)
 importances_b = abs(model_b.coef_)
+importances_b = importances_b/sum(importances_b)
 importances_c = best_model.feature_importances_
 importances_df = pd.DataFrame({'Model A': importances_a, 'Model B': importances_b, 'Model C': importances_c})
 ax = importances_df.plot(kind='bar', title='Feature Importance', xlabel='Feature', ylabel='Importance', figsize=(10, 5), grid=True)
